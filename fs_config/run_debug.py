@@ -1,54 +1,57 @@
-from gem5.isas import ISA
-from gem5.utils.requires import requires
-from gem5.simulate.simulator import Simulator
-from gem5.components.memory import DualChannelDDR4_2400
-from gem5.components.processors.cpu_types import CPUTypes
-from gem5.components.processors.base_cpu_core import BaseCPUCore
-from gem5.components.processors.simple_core import SimpleCore
-from gem5.resources.resource import DiskImageResource,KernelResource,BootloaderResource,CheckpointResource
-from gem5.components.processors.switchable_processor import (
-    SwitchableProcessor,
-)
-from gem5.simulate.exit_event import ExitEvent
-from gem5.components.processors.base_cpu_core import BaseCPUCore
-from gem5.components.processors.base_cpu_processor import BaseCPUProcessor
-from gem5.components.processors.cpu_types import CPUTypes, get_mem_mode
-from gem5.components.boards.mem_mode import MemMode
-
-import m5
-from m5.params import *
-from m5.objects import *
-
-from processors.core import TunedCPU
-from cachehierarchy.three_level_cache_hierarchy import ThreeLevelCacheHierarchy
-# from gem5.components.cachehierarchies.ruby.caches.prebuilt.octopi_cache.octopi import OctopiCache
-# from board import SkylakeARMBoard
-
 import argparse
 import sys
 from pathlib import Path
 from typing import Optional
 
+from cachehierarchy.three_level_cache_hierarchy import ThreeLevelCacheHierarchy
+from processors.core import TunedCPU
+
+import m5
+from m5 import options
+from m5.objects import *
+from m5.params import *
+
+from gem5.components.boards.mem_mode import MemMode
+from gem5.components.memory import DualChannelDDR4_2400
+from gem5.components.processors.base_cpu_core import BaseCPUCore
+from gem5.components.processors.base_cpu_processor import BaseCPUProcessor
+from gem5.components.processors.cpu_types import (
+    CPUTypes,
+    get_mem_mode,
+)
+from gem5.components.processors.simple_core import SimpleCore
+from gem5.components.processors.switchable_processor import SwitchableProcessor
+from gem5.isas import ISA
+from gem5.resources.resource import (
+    BootloaderResource,
+    CheckpointResource,
+    DiskImageResource,
+    KernelResource,
+)
+from gem5.simulate.exit_event import ExitEvent
+from gem5.simulate.simulator import Simulator
+from gem5.utils.requires import requires
+
+# from gem5.components.cachehierarchies.ruby.caches.prebuilt.octopi_cache.octopi import OctopiCache
+# from board import SkylakeARMBoard
+
+
 # m5.disableAllListeners()
 
-parser = argparse.ArgumentParser(
-        description="test"
-    )
+parser = argparse.ArgumentParser(description="test")
 
 parser.add_argument(
-        "--number",
-        default=1,
-        action="store",
-        type=int,
-        help="Rank of this system within the dist gem5 run.",
-    )
+    "--number",
+    default=1,
+    action="store",
+    type=int,
+    help="Rank of this system within the dist gem5 run.",
+)
 
 print(parser.parse_args().number)
 
 
-requires(
-    isa_required=ISA.ARM
-)
+requires(isa_required=ISA.ARM)
 
 memory = DualChannelDDR4_2400(size="2GB")
 
@@ -67,15 +70,28 @@ class TunedCore(BaseCPUCore):
 
     def get_type(self) -> CPUTypes:
         return self._cpu_type
-    
+
 
 processor = SwitchableProcessor(
     starting_cores="boot",
     switchable_cores={
-        "boot":[SimpleCore(cpu_type=CPUTypes.ATOMIC, core_id=0, isa=ISA.ARM),SimpleCore(cpu_type=CPUTypes.ATOMIC, core_id=1, isa=ISA.ARM)],
-        "OoO":[TunedCore(cpu_type=CPUTypes.TIMING, core_id=0,),TunedCore(cpu_type=CPUTypes.TIMING, core_id=1,)]
+        "boot": [
+            SimpleCore(cpu_type=CPUTypes.ATOMIC, core_id=0, isa=ISA.ARM),
+            SimpleCore(cpu_type=CPUTypes.ATOMIC, core_id=1, isa=ISA.ARM),
+        ],
+        "OoO": [
+            TunedCore(
+                cpu_type=CPUTypes.TIMING,
+                core_id=0,
+            ),
+            TunedCore(
+                cpu_type=CPUTypes.TIMING,
+                core_id=1,
+            ),
+        ],
     },
 )
+
 
 class SkylakeProcessor(BaseCPUProcessor):
     """
@@ -86,11 +102,14 @@ class SkylakeProcessor(BaseCPUProcessor):
 
     def __init__(self):
         self._cpu_type = CPUTypes.O3
-        skylakecore=[TunedCore(cpu_type=CPUTypes.TIMING, core_id=0,)]
+        skylakecore = [
+            TunedCore(
+                cpu_type=CPUTypes.TIMING,
+                core_id=0,
+            )
+        ]
 
-        super().__init__(
-            cores = skylakecore
-        )
+        super().__init__(cores=skylakecore)
 
 
 release = ArmDefaultRelease()
@@ -113,6 +132,7 @@ platform = VExpress_GEM5_Foundation()
 
 
 from gem5.components.boards.arm_board import ArmBoard
+
 board = ArmBoard(
     clk_freq="3GHz",
     processor=processor,
@@ -144,67 +164,75 @@ board.set_mem_mode(MemMode.ATOMIC_NONCACHING)
 # board.set_mem_mode(MemMode.TIMING)
 
 
-# board.set_kernel_disk_workload(    
-#     kernel = KernelResource("/home/linfeng/.cache/gem5/arm64-linux-kernel-5.4.49"),
-#     disk_image = DiskImageResource("/home/linfeng/work/arm64-ubuntu-focal-server.img",
-#                                 root_partition = "1"),
-#     bootloader = BootloaderResource("/home/linfeng/.cache/gem5/arm64-bootloader-foundation"),
-#     readfile_contents="""
-# m5 --addr 0x10010000 checkpoint
-# sleep 1
-# """
-# )
-
-
-board.set_kernel_disk_workload(    
-    kernel = KernelResource("/home/linfeng/.cache/gem5/arm64-linux-kernel-5.4.49"),
-    disk_image = DiskImageResource("/home/linfeng/work/arm64-ubuntu-focal-server.img",
-                                root_partition = "1"),
-    bootloader = BootloaderResource("/home/linfeng/.cache/gem5/arm64-bootloader-foundation"),
-    checkpoint=CheckpointResource("test/node3/cpt.307019217789"),
-    readfile_contents="""
-m5 workbegin
-sleep 1
-m5 readfile > /tmp/exe_file
-chmod 755 /tmp/exe_file
-m5 workbegin
-/tmp/exe_file 1000
-"""
+board.set_kernel_disk_workload(
+    kernel=KernelResource(
+        "/home/linfeng/.cache/gem5/arm64-linux-kernel-5.4.49"
+    ),
+    disk_image=DiskImageResource(
+        "/home/linfeng/work/arm64-ubuntu-focal-server.img", root_partition="1"
+    ),
+    bootloader=BootloaderResource(
+        "/home/linfeng/.cache/gem5/arm64-bootloader-foundation"
+    ),
+    # checkpoint=CheckpointResource("m5out/test/cpt.310906313469"),
+    readfile="m5out/test/exec_file",
 )
+
+
+import shutil
+
+file_dir = Path(options.outdir)
+shutil.copy((file_dir / "init.sh"), (file_dir / "exec_file"))
 
 
 # We define the system with the aforementioned system defined.
 
-def set_readfile():
-    print("bbbbbbbbbbbbbbb")
-    board.readfile = "/home/linfeng/bin/microbench"
+
+def init_sys():
+    print("init_sys")
+    import shutil
+
+    file_dir = Path(options.outdir)
+    shutil.copy("/home/linfeng/bin/microbench", (file_dir / "exec_file"))
+
+
+def boot_workload():
+    print("boot_workload")
+    import shutil
+
+    file_dir = Path(options.outdir)
+    shutil.copy((file_dir / "boot.sh"), (file_dir / "exec_file"))
+
 
 def begin_workload():
-        print("aaaaaaaaaaaaaaaaaa")
-        processor.switch_to_processor("OoO")
-        board.set_mem_mode(MemMode.TIMING)
+    print("begin_workload")
+    processor.switch_to_processor("OoO")
+    board.set_mem_mode(MemMode.TIMING)
 
 
 def end_workload():
     sys.exit(0)
 
+
 def save_checkpoint_generator():
-    from m5 import options
     checkpoint_dir = Path(options.outdir)
     m5.checkpoint((checkpoint_dir / f"cpt.{str(m5.curTick())}").as_posix())
 
+
 def test():
-    print("No~")
+    sys.exit(0)
 
 
-simulator = Simulator(board=board,
-full_system=True,
-on_exit_event={
-        ExitEvent.WORKBEGIN : (func() for func in [set_readfile, begin_workload]),
+simulator = Simulator(
+    board=board,
+    full_system=True,
+    on_exit_event={
+        ExitEvent.WORKBEGIN: (func() for func in [init_sys, begin_workload]),
         ExitEvent.WORKEND: (func() for func in [end_workload]),
         ExitEvent.CHECKPOINT: (func() for func in [save_checkpoint_generator]),
         ExitEvent.EXIT: (func() for func in [test]),
-    })
+    },
+)
 # simulator = Simulator(board=board,full_system=True)
 # Once the system successfully boots, it encounters an
 # `m5_exit instruction encountered`. We stop the simulation then. When the
@@ -221,7 +249,8 @@ on_exit_event={
 
 simulator.run()
 
+
 def checkpoint():
     print("Start taking a checkpoint")
-    simulator.save_checkpoint('test/ckp')
+    simulator.save_checkpoint("test/ckp")
     print("Done taking a checkpoint")
