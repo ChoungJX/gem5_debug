@@ -43,6 +43,7 @@
 
 #include <list>
 
+#include "base/types.hh"
 #include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
 #include "cpu/o3/limits.hh"
@@ -86,6 +87,8 @@ Rename::Rename(CPU *_cpu, const BaseO3CPUParams &params)
         serializeInst[tid] = nullptr;
         serializeOnNextInst[tid] = false;
     }
+    start_stall = Cycles(0);
+    end_stall = Cycles(0);
 }
 
 std::string
@@ -145,7 +148,9 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
       ADD_STAT(tempSerializing, statistics::units::Count::get(),
                "count of temporary serializing insts renamed"),
       ADD_STAT(skidInsts, statistics::units::Count::get(),
-               "count of insts added to the skid buffer")
+               "count of insts added to the skid buffer"),
+      ADD_STAT(robStallForLoad, statistics::units::Count::get(),
+               "count ROB stall due to load instruction")
 {
     squashCycles.prereq(squashCycles);
     idleCycles.prereq(idleCycles);
@@ -176,6 +181,9 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
     serializing.flags(statistics::total);
     tempSerializing.flags(statistics::total);
     skidInsts.flags(statistics::total);
+    robStallForLoad
+        .init(0,1000,100)
+        .flags(statistics::total);
 }
 
 void
@@ -417,6 +425,13 @@ Rename::tick()
 
     if (status_change) {
         updateStatus();
+        if (start_stall > Cycles(0)){
+            end_stall = cpu->curCycle();
+
+            stats.robStallForLoad.sample(end_stall - start_stall);
+            start_stall = Cycles(0);
+            end_stall = Cycles(0);
+        }
     }
 
     if (wroteToTimeBuffer) {
@@ -553,7 +568,7 @@ Rename::renameInsts(ThreadID tid)
 
         block(tid);
 
-        incrFullStat(source);
+        incrFullStat(source, tid);
 
         return;
     } else if (min_free_entries < insts_available) {
@@ -568,7 +583,7 @@ Rename::renameInsts(ThreadID tid)
 
         blockThisCycle = true;
 
-        incrFullStat(source);
+        incrFullStat(source, tid);
     }
 
     InstQueue &insts_to_rename = renameStatus[tid] == Unblocking ?
@@ -614,7 +629,7 @@ Rename::renameInsts(ThreadID tid)
                 DPRINTF(Rename, "[tid:%i] Cannot rename due to no free LQ\n",
                         tid);
                 source = LQ;
-                incrFullStat(source);
+                incrFullStat(source, tid);
                 break;
             }
         }
@@ -624,7 +639,7 @@ Rename::renameInsts(ThreadID tid)
                 DPRINTF(Rename, "[tid:%i] Cannot rename due to no free SQ\n",
                         tid);
                 source = SQ;
-                incrFullStat(source);
+                incrFullStat(source, tid);
                 break;
             }
         }
@@ -1401,11 +1416,13 @@ Rename::serializeAfter(InstQueue &inst_list, ThreadID tid)
 }
 
 void
-Rename::incrFullStat(const FullSource &source)
+Rename::incrFullStat(const FullSource &source, ThreadID tid)
 {
     switch (source) {
       case ROB:
         ++stats.ROBFullEvents;
+        if (cpu->getRobHead(tid)->staticInst->isLoad())
+            start_stall = cpu->curCycle();
         break;
       case IQ:
         ++stats.IQFullEvents;

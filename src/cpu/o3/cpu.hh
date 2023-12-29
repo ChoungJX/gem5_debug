@@ -51,6 +51,9 @@
 
 #include "arch/generic/pcstate.hh"
 #include "base/statistics.hh"
+#include "base/types.hh"
+#include "cpu/activity.hh"
+#include "cpu/base.hh"
 #include "cpu/o3/comm.hh"
 #include "cpu/o3/commit.hh"
 #include "cpu/o3/decode.hh"
@@ -63,8 +66,6 @@
 #include "cpu/o3/rob.hh"
 #include "cpu/o3/scoreboard.hh"
 #include "cpu/o3/thread_state.hh"
-#include "cpu/activity.hh"
-#include "cpu/base.hh"
 #include "cpu/simple_thread.hh"
 #include "cpu/timebuf.hh"
 #include "params/BaseO3CPU.hh"
@@ -587,6 +588,8 @@ class CPU : public BaseCPU
     // hardware transactional memory
     void htmSendAbortSignal(ThreadID tid, uint64_t htm_uid,
                             HtmFailureFaultCause cause) override;
+
+    DynInstPtr getRobHead(ThreadID tid);
 };
 
 } // namespace o3

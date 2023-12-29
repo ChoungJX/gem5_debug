@@ -36,3 +36,5 @@ configs/dram/lowp_sweep.cfg
 typings
 venv
 /fs_config/script
+.cache
+compile_commands.json

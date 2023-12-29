@@ -1459,5 +1459,11 @@ CPU::htmSendAbortSignal(ThreadID tid, uint64_t htm_uid,
     }
 }
 
+DynInstPtr
+CPU::getRobHead(ThreadID tid)
+{
+    return rob.readHeadInst(tid);
+}
+
 } // namespace o3
 } // namespace gem5

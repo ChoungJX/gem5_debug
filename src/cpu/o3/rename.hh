@@ -46,6 +46,7 @@
 #include <utility>
 
 #include "base/statistics.hh"
+#include "base/types.hh"
 #include "cpu/o3/comm.hh"
 #include "cpu/o3/commit.hh"
 #include "cpu/o3/dyn_inst_ptr.hh"
@@ -477,7 +478,10 @@ class Rename
     /** Function used to increment the stat that corresponds to the source of
      * the stall.
      */
-    void incrFullStat(const FullSource &source);
+    void incrFullStat(const FullSource &source, ThreadID tid);
+
+    Cycles start_stall;
+    Cycles end_stall;
 
     struct RenameStats : public statistics::Group
     {
@@ -536,6 +540,8 @@ class Rename
         statistics::Scalar tempSerializing;
         /** Number of instructions inserted into skid buffers. */
         statistics::Scalar skidInsts;
+
+        statistics::Distribution robStallForLoad;
     } stats;
 };
 
