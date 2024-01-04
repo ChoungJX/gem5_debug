@@ -26,41 +26,28 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
-
 from typing import List
 
-from gem5.utils.override import overrides
-from gem5.components.boards.abstract_system_board import AbstractSystemBoard
-from gem5.components.boards.kernel_disk_workload import KernelDiskWorkload
-from gem5.components.processors.abstract_processor import AbstractProcessor
-from gem5.components.memory.abstract_memory_system import AbstractMemorySystem
-from gem5.components.cachehierarchies.abstract_cache_hierarchy import AbstractCacheHierarchy
-from gem5.resources.resource import AbstractResource
-
-from gem5.isas import ISA
-
 import m5
-
 from m5.objects import (
+    AddrRange,
     BadAddr,
     Bridge,
-    PMAChecker,
-    RiscvLinux,
-    AddrRange,
-    IOXBar,
-    RiscvRTC,
-    HiFive,
-    GenericRiscvPciHost,
-    IGbE_e1000,
     CowDiskImage,
+    Frequency,
+    GenericRiscvPciHost,
+    HiFive,
+    IGbE_e1000,
+    IOXBar,
+    PMAChecker,
+    Port,
     RawDiskImage,
+    RiscvLinux,
     RiscvMmioVirtIO,
+    RiscvRTC,
     VirtIOBlock,
     VirtIORng,
-    Frequency,
-    Port,
 )
-
 from m5.util.fdthelper import (
     Fdt,
     FdtNode,
@@ -69,6 +56,17 @@ from m5.util.fdthelper import (
     FdtPropertyWords,
     FdtState,
 )
+
+from gem5.components.boards.abstract_system_board import AbstractSystemBoard
+from gem5.components.boards.kernel_disk_workload import KernelDiskWorkload
+from gem5.components.cachehierarchies.abstract_cache_hierarchy import (
+    AbstractCacheHierarchy,
+)
+from gem5.components.memory.abstract_memory_system import AbstractMemorySystem
+from gem5.components.processors.abstract_processor import AbstractProcessor
+from gem5.isas import ISA
+from gem5.resources.resource import AbstractResource
+from gem5.utils.override import overrides
 
 
 class RiscvBoard_cust(AbstractSystemBoard, KernelDiskWorkload):
@@ -89,7 +87,7 @@ class RiscvBoard_cust(AbstractSystemBoard, KernelDiskWorkload):
         processor: AbstractProcessor,
         memory: AbstractMemorySystem,
         cache_hierarchy: AbstractCacheHierarchy,
-        dist_id: int
+        dist_id: int,
     ) -> None:
         super().__init__(clk_freq, processor, memory, cache_hierarchy)
 
@@ -151,7 +149,13 @@ class RiscvBoard_cust(AbstractSystemBoard, KernelDiskWorkload):
 
         # Add Ethernet card
         self.ethernet = IGbE_e1000(
-            pci_bus=0, pci_dev=0, pci_func=0, InterruptLine=1, InterruptPin=1, phy_pid=self._dist_id+114, phy_epid=self._dist_id+514
+            pci_bus=0,
+            pci_dev=0,
+            pci_func=0,
+            InterruptLine=1,
+            InterruptPin=1,
+            phy_pid=self._dist_id + 114,
+            phy_epid=self._dist_id + 514,
         )
 
         self.ethernet.host = self.platform.pci_host

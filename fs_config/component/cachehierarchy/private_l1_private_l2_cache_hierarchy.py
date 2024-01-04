@@ -24,20 +24,23 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from m5.objects import *
+
+from gem5.components.boards.abstract_board import AbstractBoard
+from gem5.components.cachehierarchies.abstract_cache_hierarchy import (
+    AbstractCacheHierarchy,
+)
+from gem5.components.cachehierarchies.abstract_two_level_cache_hierarchy import (
+    AbstractTwoLevelCacheHierarchy,
+)
 from gem5.components.cachehierarchies.classic.abstract_classic_cache_hierarchy import (
     AbstractClassicCacheHierarchy,
 )
-
-from gem5.components.cachehierarchies.abstract_cache_hierarchy import AbstractCacheHierarchy
-from gem5.components.cachehierarchies.abstract_two_level_cache_hierarchy import AbstractTwoLevelCacheHierarchy
-
-from gem5.components.boards.abstract_board import AbstractBoard
-
-from gem5.utils.override import *
 from gem5.isas import ISA
-from m5.objects import *
+from gem5.utils.override import *
 
 from .skylake_caches import *
+
 
 class PrivateL1PrivateL2CacheHierarchy(
     AbstractClassicCacheHierarchy, AbstractTwoLevelCacheHierarchy
@@ -112,7 +115,6 @@ class PrivateL1PrivateL2CacheHierarchy(
 
     @overrides(AbstractCacheHierarchy)
     def incorporate_cache(self, board: AbstractBoard) -> None:
-
         # Set up the system port for functional access from the simulator.
         board.connect_system_port(self.membus.cpu_side_ports)
 
@@ -120,32 +122,28 @@ class PrivateL1PrivateL2CacheHierarchy(
             cntr.port = self.membus.mem_side_ports
 
         self.l1icaches = [
-            L1ICache()
-            for i in range(board.get_processor().get_num_cores())
+            L1ICache() for i in range(board.get_processor().get_num_cores())
         ]
         self.l1dcaches = [
-            L1DCache()
-            for i in range(board.get_processor().get_num_cores())
+            L1DCache() for i in range(board.get_processor().get_num_cores())
         ]
         self.l2buses = [
-            L2XBar(width=192) for i in range(board.get_processor().get_num_cores())
+            L2XBar(width=192)
+            for i in range(board.get_processor().get_num_cores())
         ]
         self.l2caches = [
-            L2Cache()
-            for i in range(board.get_processor().get_num_cores())
+            L2Cache() for i in range(board.get_processor().get_num_cores())
         ]
 
         # TLB Page walk caches
         self.ptwcaches = [
-            MMUCache()
-            for _ in range(board.get_processor().get_num_cores())
+            MMUCache() for _ in range(board.get_processor().get_num_cores())
         ]
 
         if board.has_coherent_io():
             self._setup_io_cache(board)
 
         for i, cpu in enumerate(board.get_processor().get_cores()):
-
             cpu.connect_icache(self.l1icaches[i].cpu_side)
             cpu.connect_dcache(self.l1dcaches[i].cpu_side)
 

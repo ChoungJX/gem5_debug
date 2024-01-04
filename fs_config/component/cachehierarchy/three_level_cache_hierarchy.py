@@ -1,15 +1,16 @@
+from m5.objects import *
+
+from gem5.components.boards.abstract_board import AbstractBoard
 from gem5.components.cachehierarchies.classic.abstract_classic_cache_hierarchy import (
     AbstractClassicCacheHierarchy,
 )
-from gem5.components.boards.abstract_board import AbstractBoard
-
-from m5.objects import *
 from gem5.isas import ISA
 
 from .skylake_caches import *
 
+
 class ThreeLevelCacheHierarchy(AbstractClassicCacheHierarchy):
-    def __init__(self, l1dwritelatency=0, l3_bank_num = 4) -> None:
+    def __init__(self, l1dwritelatency=0, l3_bank_num=4) -> None:
         AbstractClassicCacheHierarchy.__init__(self=self)
         self.membus = SystemXBar(width=192)
         self.membus.badaddr_responder = BadAddr()
@@ -35,30 +36,25 @@ class ThreeLevelCacheHierarchy(AbstractClassicCacheHierarchy):
         # self.l1icache = L1ICache()
         # self.l1dcache = L1DCache(self._l1dmshr, self._l1dwb)
         self.l1dcaches = [
-            L1DCache()
-            for _ in range(board.get_processor().get_num_cores())
+            L1DCache() for _ in range(board.get_processor().get_num_cores())
         ]
         self.l1icaches = [
-            L1ICache()
-            for _ in range(board.get_processor().get_num_cores())
+            L1ICache() for _ in range(board.get_processor().get_num_cores())
         ]
 
         self.iptw_caches = [
-            MMUCache()
-            for _ in range(board.get_processor().get_num_cores())
+            MMUCache() for _ in range(board.get_processor().get_num_cores())
         ]
         # DTLB Page walk caches
         self.dptw_caches = [
-            MMUCache()
-            for _ in range(board.get_processor().get_num_cores())
+            MMUCache() for _ in range(board.get_processor().get_num_cores())
         ]
 
         # self.l2cache = L2Cache(self._l2mshr, self._l2wb)
         self.l2caches = [
-            L2Cache()
-            for _ in range(board.get_processor().get_num_cores())
+            L2Cache() for _ in range(board.get_processor().get_num_cores())
         ]
-        
+
         self.l3cache = L3Cache()
 
         # self.ptwXBar = L2XBar()
@@ -68,11 +64,10 @@ class ThreeLevelCacheHierarchy(AbstractClassicCacheHierarchy):
         ]
 
         self.l3XBar = L2XBar(width=192)
-        
+
         # connect all the caches and buses
         # core = board.get_processor().get_cores()[0].core
         for i, cpu in enumerate(board.get_processor().get_cores()):
-
             cpu.connect_icache(self.l1icaches[i].cpu_side)
             cpu.connect_dcache(self.l1dcaches[i].cpu_side)
 

@@ -24,49 +24,56 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from m5.objects import (
-    Port,
-    IOXBar,
-    Bridge,
-    BadAddr,
-    Terminal,
-    PciVirtIO,
-    VncServer,
-    AddrRange,
-    ArmSystem,
-    ArmRelease,
-    ArmFsLinux,
-    VirtIOBlock,
-    CowDiskImage,
-    RawDiskImage,
-    VoltageDomain,
-    SrcClockDomain,
-    ArmDefaultRelease,
-    VExpress_GEM5_Base,
-    VExpress_GEM5_Foundation,
-    RealView,
-    VExpress_EMM,
-    VExpress_EMM64,
-    SimObject,
-    IGbE_e1000,
-    DistEtherLink,
-    Parent
+import os
+from abc import ABCMeta
+from typing import (
+    List,
+    Sequence,
+    Tuple,
 )
 
-import os
 import m5
-from abc import ABCMeta
-from gem5.isas import ISA
-from gem5.utils.requires import requires
-from gem5.utils.override import overrides
-from typing import List, Sequence, Tuple
+from m5.objects import (
+    AddrRange,
+    ArmDefaultRelease,
+    ArmFsLinux,
+    ArmRelease,
+    ArmSystem,
+    BadAddr,
+    Bridge,
+    CowDiskImage,
+    DistEtherLink,
+    IGbE_e1000,
+    IOXBar,
+    Parent,
+    PciVirtIO,
+    Port,
+    RawDiskImage,
+    RealView,
+    SimObject,
+    SrcClockDomain,
+    Terminal,
+    VExpress_EMM,
+    VExpress_EMM64,
+    VExpress_GEM5_Base,
+    VExpress_GEM5_Foundation,
+    VirtIOBlock,
+    VncServer,
+    VoltageDomain,
+)
+
 from gem5.components.boards.abstract_board import AbstractBoard
-from gem5.resources.resource import AbstractResource
 from gem5.components.boards.kernel_disk_workload import KernelDiskWorkload
+from gem5.components.cachehierarchies.abstract_cache_hierarchy import (
+    AbstractCacheHierarchy,
+)
 from gem5.components.cachehierarchies.classic.no_cache import NoCache
-from gem5.components.processors.abstract_processor import AbstractProcessor
 from gem5.components.memory.abstract_memory_system import AbstractMemorySystem
-from gem5.components.cachehierarchies.abstract_cache_hierarchy import AbstractCacheHierarchy
+from gem5.components.processors.abstract_processor import AbstractProcessor
+from gem5.isas import ISA
+from gem5.resources.resource import AbstractResource
+from gem5.utils.override import overrides
+from gem5.utils.requires import requires
 
 
 class ArmBoarda(ArmSystem, AbstractBoard, KernelDiskWorkload):
@@ -94,7 +101,6 @@ class ArmBoarda(ArmSystem, AbstractBoard, KernelDiskWorkload):
         platform: RealView = VExpress_EMM64(),
         release: ArmRelease = ArmDefaultRelease(),
     ) -> None:
-
         # The platform and the clk has to be set before calling the super class
         self._platform = platform
         self._clk_freq = clk_freq
@@ -123,7 +129,6 @@ class ArmBoarda(ArmSystem, AbstractBoard, KernelDiskWorkload):
 
     @overrides(AbstractBoard)
     def _setup_board(self) -> None:
-
         # This board is expected to run full-system simulation.
         # Loading ArmFsLinux() from `src/arch/arm/ArmFsWorkload.py`
         self.workload = ArmFsLinux()
@@ -219,7 +224,6 @@ class ArmBoarda(ArmSystem, AbstractBoard, KernelDiskWorkload):
         # created. The IO device has to be attached first. This is done in the
         # realview class.
         if self.get_cache_hierarchy().is_ruby():
-
             # All the on-chip devices are attached in this method.
             self.realview.attachOnChipIO(
                 self.iobus,
@@ -364,7 +368,6 @@ class ArmBoarda(ArmSystem, AbstractBoard, KernelDiskWorkload):
 
     @overrides(KernelDiskWorkload)
     def _add_disk_to_board(self, disk_image: AbstractResource):
-
         self._image = CowDiskImage(
             child=RawDiskImage(
                 read_only=True, image_file=disk_image.get_local_path()
@@ -384,7 +387,6 @@ class ArmBoarda(ArmSystem, AbstractBoard, KernelDiskWorkload):
 
     @overrides(KernelDiskWorkload)
     def get_default_kernel_args(self) -> List[str]:
-
         # The default kernel string is taken from the devices.py file.
         return [
             "console=ttyAMA0",

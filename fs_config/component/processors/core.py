@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2020 The Regents of the University of California
 # All rights reserved.
 #
@@ -27,9 +26,10 @@
 #
 # Authors: Jason Lowe-Power, Trivikram Reddy
 
+import math
+
 import m5
 from m5.objects import *
-import math
 
 
 class port0(FUDesc):
