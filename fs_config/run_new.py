@@ -84,19 +84,12 @@ class TunedCore(BaseCPUCore):
 processor = SwitchableProcessor(
     starting_cores="boot",
     switchable_cores={
-        "boot": [
-            SimpleCore(cpu_type=CPUTypes.ATOMIC, core_id=0, isa=ISA.ARM),
-            SimpleCore(cpu_type=CPUTypes.ATOMIC, core_id=1, isa=ISA.ARM),
-        ],
+        "boot": [SimpleCore(cpu_type=CPUTypes.ATOMIC, core_id=0, isa=ISA.ARM)],
         "OoO": [
             TunedCore(
                 cpu_type=CPUTypes.TIMING,
                 core_id=0,
-            ),
-            TunedCore(
-                cpu_type=CPUTypes.TIMING,
-                core_id=1,
-            ),
+            )
         ],
     },
 )
@@ -138,26 +131,26 @@ board = ArmBoard(
     platform=platform,
 )
 
-board.ethernet = IGbE_e1000(
-    pci_bus=0, pci_dev=0, pci_func=0, InterruptLine=1, InterruptPin=1
-)
-board.realview.attachPciDevice(
-    board.ethernet, bus=board.get_io_bus(), dma_ports=board.get_dma_ports()
-)
+# board.ethernet = IGbE_e1000(
+#     pci_bus=0, pci_dev=0, pci_func=0, InterruptLine=1, InterruptPin=1
+# )
+# board.realview.attachPciDevice(
+#     board.ethernet, bus=board.get_io_bus(), dma_ports=board.get_dma_ports()
+# )
 
 
-board.etherlink = DistEtherLink(
-    dist_rank=parser.parse_args().number,
-    dist_size=21,
-    server_port=2200,
-    sync_start="1000000000000t",
-    sync_repeat="10us",
-    delay="3ms",
-    delay_var="1ms",
-    num_nodes=21,
-)
+# board.etherlink = DistEtherLink(
+#     dist_rank=parser.parse_args().number,
+#     dist_size=21,
+#     server_port=2200,
+#     sync_start="1000000000000t",
+#     sync_repeat="10us",
+#     delay="3ms",
+#     delay_var="1ms",
+#     num_nodes=21,
+# )
 
-board.etherlink.int0 = Parent.board.ethernet.interface
+# board.etherlink.int0 = Parent.board.ethernet.interface
 
 board.set_mem_mode(MemMode.ATOMIC_NONCACHING)
 # board.set_mem_mode(MemMode.TIMING)
@@ -250,7 +243,7 @@ if parser.parse_args().number == 0:
             "/home/linfeng/work/gem5_debug/fs_config/script/mini-redis"
         )
         shutil.copy(
-            "/home/linfeng/bin/mini_redis_arm/mini-redis-server",
+            "/home/linfeng/bin/async_test",
             (file_dir / "server"),
         )
 

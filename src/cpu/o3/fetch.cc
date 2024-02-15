@@ -836,11 +836,13 @@ Fetch::tick()
     DPRINTF(Fetch, "Running stage.\n");
 
     if (FullSystem) {
-        if (fromCommit->commitInfo[0].interruptPending) {
+        if (fromCommit->commitInfo[0].interruptPending
+            || fromCommit->commitInfo[1].interruptPending) {
             interruptPending = true;
         }
 
-        if (fromCommit->commitInfo[0].clearInterrupt) {
+        if (fromCommit->commitInfo[0].clearInterrupt
+            && fromCommit->commitInfo[1].clearInterrupt) {
             interruptPending = false;
         }
     }

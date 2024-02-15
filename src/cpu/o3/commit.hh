@@ -491,6 +491,10 @@ class Commit
         /** Number of cycles where the commit bandwidth limit is reached. */
         statistics::Scalar commitEligibleSamples;
     } stats;
+
+    private:
+    Addr checked_pc;
+    int instMatchFSM;
 };
 
 } // namespace o3

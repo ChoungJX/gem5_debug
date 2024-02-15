@@ -365,6 +365,7 @@ class ArmSystem(System):
         for node in self.recurseDeviceTree(state):
             # Merge root nodes instead of adding them (for children
             # that need to add multiple root level nodes)
+            print(node.get_name())
             if node.get_name() == root.get_name():
                 root.merge(node)
             else:

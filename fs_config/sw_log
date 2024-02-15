@@ -1,0 +1,22 @@
+Global frequency set at 1000000000000 ticks per second
+src/dev/net/tcp_iface.cc:97: info: tcp_iface listening on port 2200
+src/dev/net/tcp_iface.cc:178: info: Link okay  (iface:0 -> (node:0, iface:0))
+src/dev/net/dist_iface.cc:74: info: Next dist synchronisation tick is changed to 1000000000000.
+src/dev/net/dist_iface.cc:83: info: Dist synchronisation interval is changed to 10000000.
+src/dev/net/tcp_iface.cc:178: info: Link okay  (iface:1 -> (node:1, iface:0))
+src/dev/net/tcp_iface.cc:178: info: Link okay  (iface:2 -> (node:2, iface:0))
+src/dev/net/dist_iface.cc:364: info: Dist sync scheduled at 1000000000000 and repeats 10000000
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 23.1.0.0
+gem5 compiled Feb  8 2024 17:56:12
+gem5 started Feb 13 2024 22:16:25
+gem5 executing on 4ea496a62bcd, pid 168569
+command line: ./build/ARM/gem5.opt -d m5out/switch configs/dist/sw.py --is-switch --checkpoint-dir=m5out/switch_arm --dist-server-port=2200 --dist-size=3 --dist-sync-repeat=10us --dist-sync-start=1000000000000t
+
+**** REAL SIMULATION ****
+src/sim/simulate.cc:199: info: Entering event queue @ 0.  Starting simulation...
+Writing checkpoint
+src/sim/simulate.cc:199: info: Entering event queue @ 1000000000000.  Starting simulation...
+Exiting @ tick 118883590000000 because user interrupt received

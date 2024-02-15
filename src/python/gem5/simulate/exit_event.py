@@ -115,6 +115,9 @@ class ExitEvent(Enum):
         elif exit_string.endswith("is finished updating the memory.\n"):
             # This is for the gups generator exit event
             return ExitEvent.EXIT
+        elif exit_string.endswith("exit request from gem5 peers"):
+            # This is for the gups generator exit event
+            return ExitEvent.EXIT
         raise NotImplementedError(
             f"Exit event '{exit_string}' not implemented"
         )

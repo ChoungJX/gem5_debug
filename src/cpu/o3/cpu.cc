@@ -116,8 +116,8 @@ CPU::CPU(const BaseO3CPUParams &params)
       lastRunningCycle(curCycle()),
       cpuStats(this)
 {
-    fatal_if(FullSystem && params.numThreads > 1,
-            "SMT is not supported in O3 in full system mode currently.");
+    // fatal_if(FullSystem && params.numThreads > 1,
+    //         "SMT is not supported in O3 in full system mode currently.");
 
     fatal_if(!FullSystem && params.numThreads < params.workload.size(),
             "More workload items (%d) than threads (%d) on CPU %s.",
@@ -138,10 +138,10 @@ CPU::CPU(const BaseO3CPUParams &params)
         checker = NULL;
     }
 
-    if (!FullSystem) {
+    // if (!FullSystem) {
         thread.resize(numThreads);
         tids.resize(numThreads);
-    }
+    // }
 
     // The stages also need their CPU pointer setup.  However this
     // must be done at the upper level CPU because they have pointers
@@ -179,7 +179,12 @@ CPU::CPU(const BaseO3CPUParams &params)
 
     ThreadID active_threads;
     if (FullSystem) {
-        active_threads = 1;
+        active_threads = numThreads;
+
+        if (active_threads > MaxThreads) {
+            panic("Workload Size too large. Increase the 'MaxThreads' "
+                  "constant in cpu/o3/limits.hh or edit your workload size.");
+        }
     } else {
         active_threads = params.workload.size();
 
@@ -255,8 +260,17 @@ CPU::CPU(const BaseO3CPUParams &params)
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
         if (FullSystem) {
             // SMT is not supported in FS mode yet.
-            assert(numThreads == 1);
-            thread[tid] = new ThreadState(this, 0, NULL);
+            if (tid < params.workload.size()) {
+                DPRINTF(O3CPU, "Workload[%i] process is %#x", tid,
+                        thread[tid]);
+                thread[tid] = new ThreadState(this, tid, NULL);
+            } else {
+                //Allocate Empty thread so M5 can use later
+                //when scheduling threads to CPU
+                Process* dummy_proc = NULL;
+
+                thread[tid] = new ThreadState(this, tid, dummy_proc);
+            }
         } else {
             if (tid < params.workload.size()) {
                 DPRINTF(O3CPU, "Workload[%i] process is %#x", tid,
@@ -393,7 +407,7 @@ CPU::tick()
         }
     }
 
-    if (!FullSystem)
+    // if (!FullSystem)
         updateThreadPriority();
 
     tryDrain();
@@ -581,7 +595,8 @@ CPU::insertThread(ThreadID tid)
     // and not in the ThreadContext.
     gem5::ThreadContext *src_tc;
     if (FullSystem)
-        src_tc = system->threads[tid];
+        // src_tc = system->threads[tid];
+        src_tc = tcBase(tid);
     else
         src_tc = tcBase(tid);
 
@@ -605,7 +620,11 @@ CPU::insertThread(ThreadID tid)
 
     src_tc->setStatus(gem5::ThreadContext::Active);
 
-    activateContext(tid);
+    if (FullSystem && tid > 0 ){
+
+    }else{
+        activateContext(tid);
+    }
 
     //Reset ROB/IQ/LSQ Entries
     commit.rob->resetEntries();

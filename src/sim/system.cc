@@ -166,7 +166,7 @@ int System::numSystemsRunning = 0;
 
 System::System(const Params &p)
     : SimObject(p), _systemPort("system_port"),
-      multiThread(p.multi_thread),
+      multiThread(true),
       init_param(p.init_param),
       physProxy(_systemPort, p.cache_line_size),
       workload(p.workload),

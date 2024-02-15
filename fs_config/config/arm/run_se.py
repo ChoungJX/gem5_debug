@@ -21,14 +21,10 @@ from gem5.components.boards.mem_mode import MemMode
 from gem5.components.memory import DualChannelDDR4_2400
 from gem5.components.processors.base_cpu_core import BaseCPUCore
 from gem5.components.processors.cpu_types import CPUTypes
+from gem5.components.processors.simple_core import SimpleCore
 from gem5.components.processors.switchable_processor import SwitchableProcessor
 from gem5.isas import ISA
-from gem5.resources.resource import (
-    BootloaderResource,
-    CheckpointResource,
-    DiskImageResource,
-    KernelResource,
-)
+from gem5.resources.resource import BinaryResource
 from gem5.simulate.exit_event import ExitEvent
 from gem5.simulate.simulator import Simulator
 from gem5.utils.requires import requires
@@ -42,7 +38,7 @@ parser.add_argument(
     default=False,
     action="store",
     type=bool,
-    help="To boot the simulator from a checkpoint.",
+    help="To boos the simulator from a checkpoint.",
 )
 
 
@@ -56,59 +52,31 @@ print("=======================================================")
 bootloader_path = "/home/linfeng/.cache/gem5/arm64-bootloader-foundation"
 kernel_path = "/home/linfeng/.cache/gem5/arm64-linux-kernel-5.4.49"
 system_image_path = "/home/linfeng/work/arm64-ubuntu-focal-server.img"
-checkpoint_path = "m5out/test/node1/cpt.324854903584"
+checkpoint_path = "m5out/test/node0/cpt.324854903584"
 
 readfile_path = "fs_config/data/readfile"  # for m5 readfile
-binary_path = "/home/linfeng/bin/async_test_release"  # your workload
-init_script = "fs_config/data/init_fast.sh"  # this script would be executed once the system booted
+binary_path = (
+    "/home/linfeng/async_test/target/release/async_test"  # your workload
+)
+init_script = "fs_config/data/init.sh"  # this script would be executed once the system booted
 level2_script = "fs_config/data/level2.sh"  # we use the init_script to trigger the level2_script so that we can execute arbitrary script from a checkpoint
 # =================================================================
 
 
-requires(isa_required=ISA.ARM)
+requires(isa_required=ISA.X86)
 
 memory = DualChannelDDR4_2400(size="2GB")
 
 
 class TunedCore(BaseCPUCore):
     def __init__(self, cpu_type: CPUTypes, core_id):
-        super().__init__(core=TunedCPU(cpu_id=core_id), isa=ISA.ARM)
+        super().__init__(core=TunedCPU(cpu_id=core_id), isa=ISA.X86)
 
         self._cpu_type = cpu_type
 
     def get_type(self) -> CPUTypes:
         return self._cpu_type
 
-
-class BootCore(BaseCPUCore):
-    def __init__(self, cpu_type: CPUTypes, core_id):
-        super().__init__(
-            core=DerivO3CPU(cpu_id=core_id, numThreads=2), isa=ISA.ARM
-        )
-
-        self._cpu_type = cpu_type
-
-    def get_type(self) -> CPUTypes:
-        return self._cpu_type
-
-
-# processor = SwitchableProcessor(
-#     starting_cores="boot",
-#     switchable_cores={
-#         "boot": [
-#             BootCore(
-#                 cpu_type=CPUTypes.TIMING,
-#                 core_id=0,
-#             )
-#         ],
-#         "OoO": [
-#             TunedCore(
-#                 cpu_type=CPUTypes.TIMING,
-#                 core_id=0,
-#             )
-#         ],
-#     },
-# )
 
 from gem5.components.processors.base_cpu_processor import BaseCPUProcessor
 
@@ -126,55 +94,20 @@ class SkylakeProcessor(BaseCPUProcessor):
         super().__init__(cores=skylakecore)
 
 
-processor = SkylakeProcessor()
+# board.set_mem_mode(MemMode.ATOMIC_NONCACHING)
 
+from gem5.components.boards.simple_board import SimpleBoard
 
-release = ArmDefaultRelease()
-platform = VExpress_GEM5_Foundation()
-
-
-from gem5.components.boards.arm_board import ArmBoard
-
-board = ArmBoard(
+board = SimpleBoard(
     clk_freq="3GHz",
-    processor=processor,
-    # processor=SkylakeProcessor(),
+    processor=SkylakeProcessor(),
     memory=memory,
     cache_hierarchy=ThreeLevelCacheHierarchy(),
-    # cache_hierarchy=test_cache,
-    release=release,
-    platform=platform,
 )
 
-
-# board.set_mem_mode(MemMode.ATOMIC_NONCACHING)
 board.set_mem_mode(MemMode.TIMING)
 
-shutil.copy(Path(init_script), Path(readfile_path))
-
-
-if parser.parse_args().checkpoint:
-    board.set_kernel_disk_workload(
-        kernel=KernelResource(kernel_path),
-        disk_image=DiskImageResource(
-            system_image_path,
-            root_partition="1",
-        ),
-        bootloader=BootloaderResource(bootloader_path),
-        checkpoint=CheckpointResource(checkpoint_path),
-        readfile=readfile_path,
-    )
-
-else:
-    board.set_kernel_disk_workload(
-        kernel=KernelResource(kernel_path),
-        disk_image=DiskImageResource(
-            system_image_path,
-            root_partition="1",
-        ),
-        bootloader=BootloaderResource(bootloader_path),
-        readfile=readfile_path,
-    )
+board.set_se_binary_workload(BinaryResource(binary_path))
 
 
 # We define the system with the aforementioned system defined.
@@ -199,8 +132,7 @@ def begin_workload():
 
 
 def end_workload():
-    # sys.exit(0)
-    print("end")
+    sys.exit(0)
 
 
 def save_checkpoint_generator():
@@ -209,13 +141,12 @@ def save_checkpoint_generator():
 
 
 def test():
-    # sys.exit(0)
-    print("end")
+    sys.exit(0)
 
 
 simulator = Simulator(
     board=board,
-    full_system=True,
+    full_system=False,
     on_exit_event={
         ExitEvent.WORKBEGIN: (
             func() for func in [init_sys, boot_workload, begin_workload]

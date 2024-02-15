@@ -130,6 +130,8 @@ Commit::Commit(CPU *_cpu, const BaseO3CPUParams &params)
         htmStops[tid] = 0;
     }
     interrupt = NoFault;
+    checked_pc = 0;
+    instMatchFSM = 0;
 }
 
 std::string Commit::name() const { return cpu->name() + ".commit"; }
@@ -737,7 +739,7 @@ Commit::commit()
 {
     if (FullSystem) {
         // Check if we have a interrupt and get read to handle it
-        if (cpu->checkInterrupts(0))
+        if (cpu->checkInterrupts(0) || cpu->checkInterrupts(1))
             propagateInterrupt();
     }
 

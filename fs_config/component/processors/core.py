@@ -200,50 +200,10 @@ depth = 3
 width = 4
 
 
-class VerbatimCPU(DerivO3CPU):
-    """Uncalibrated: Configured based on micro-architecture documentation"""
-
-    branchPred = BranchPred()
-
-    # Pipeline delays
-    # https://gem5-users.gem5.narkive.com/LNMJQ1M5/model-deeper-pipeline-in-x86#post2
-    # to model 15 stage pipeline choose depth parameter as 3
-    fetchToDecodeDelay = depth
-    decodeToRenameDelay = 1
-    renameToIEWDelay = 3 * depth
-    iewToCommitDelay = 2 * depth
-
-    forwardComSize = 19
-    backComSize = 19
-
-    fuPool = ExecUnits()
-
-    # Pipeline widths
-    fetchWidth = width
-    decodeWidth = width
-    renameWidth = 2 * width
-    dispatchWidth = 2 * width
-    issueWidth = 2 * width
-    wbWidth = 2 * width
-    commitWidth = 2 * width
-    squashWidth = 2 * width
-
-    fetchBufferSize = 16
-    fetchQueueSize = 50
-    numROBEntries = 224
-    numIQEntries = 97
-    LQEntries = 72
-    SQEntries = 56
-    numPhysIntRegs = 180
-    numPhysFloatRegs = 168
-
-
-depth = 3
-width = 4
-
-
 class TunedCPU(DerivO3CPU):
     """Calibrated: configured to match the performance of hardware"""
+
+    numThreads = 2
 
     branchPred = BranchPred()
 
@@ -286,56 +246,6 @@ class TunedCPU(DerivO3CPU):
     SQEntries = 56 * 2
     numPhysIntRegs = 270
     numPhysFloatRegs = 252
-
-
-depth = 3
-width = 32
-
-
-class UnconstrainedCPU(DerivO3CPU):
-    """Configuration with maximum pipeline widths and mininum delays"""
-
-    branchPred = BranchPred()
-
-    # Pipeline delays
-    fetchToDecodeDelay = depth
-    decodeToRenameDelay = 2
-    renameToIEWDelay = 3 * depth
-    issueToExecuteDelay = 1
-    iewToCommitDelay = 2 * depth
-
-    forwardComSize = 12
-    backComSize = 12
-
-    # Pipeline widths
-    fetchWidth = width
-    decodeWidth = width
-    renameWidth = width
-    dispatchWidth = width
-    issueWidth = width
-    wbWidth = width
-    commitWidth = width
-    squashWidth = width
-
-    fuPool = ExecUnits()
-    fuPool.FUList[0].count = 4
-    fuPool.FUList[1].count = 4
-    fuPool.FUList[2].count = 4
-    fuPool.FUList[3].count = 4
-    fuPool.FUList[4].count = 4
-    fuPool.FUList[5].count = 4
-    fuPool.FUList[6].count = 4
-    fuPool.FUList[7].count = 4
-    # IntDiv()
-    fuPool.FUList[0].opList[1].opLat = 2
-    # IntMult()
-    fuPool.FUList[1].opList[1].opLat = 2
-
-    fetchBufferSize = 64
-    fetchQueueSize = 128
-    numROBEntries = 1024
-    numIQEntries = 512
-    LQEntries = 256
-    SQEntries = 224
-    numPhysIntRegs = 336
-    numPhysFloatRegs = 256  # Need to change this
+    numPhysVecRegs = 164
+    numPhysVecPredRegs = 64
+    numPhysMatRegs = 4
