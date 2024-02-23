@@ -42,6 +42,7 @@
 
 #include "cpu/o3/cpu.hh"
 
+#include "base/trace.hh"
 #include "cpu/activity.hh"
 #include "cpu/checker/cpu.hh"
 #include "cpu/checker/thread_context.hh"
@@ -72,7 +73,6 @@ namespace o3
 CPU::CPU(const BaseO3CPUParams &params)
     : BaseCPU(params),
       mmu(params.mmu),
-      nextactivate(-1),
       tickEvent([this]{ tick(); }, "O3CPU tick",
                 false, Event::CPU_Tick_Pri),
 #ifndef NDEBUG
@@ -224,6 +224,7 @@ CPU::CPU(const BaseO3CPUParams &params)
 
     // Setup the rename map for whichever stages need it.
     for (ThreadID tid = 0; tid < numThreads; tid++) {
+        nextactivate[tid] = false;
         isa[tid] = params.isa[tid];
         commitRenameMap[tid].init(regClasses, &regFile, &freeList);
         renameMap[tid].init(regClasses, &regFile, &freeList);
@@ -365,28 +366,30 @@ CPU::tick()
 
     ++baseStats.numCycles;
     updateCycleCounters(BaseCPU::CPU_STATE_ON);
-    if(curTick()>lastActivatedCycle && nextactivate!=-1){
-        scheduleTickEvent(Cycles(0));
+    for (ThreadID tid = 0; tid < numThreads; ++tid) {
+        if(curTick()>lastActivatedCycle && nextactivate[tid]){
+            DPRINTF(SMT, "before lastActivatedCycle:%llu curTick(): %llu\n",lastActivatedCycle , curTick());
+            scheduleTickEvent(Cycles(0));
 
-        // Be sure to signal that there's some activity so the CPU doesn't
-        // deschedule itself.
-        activityRec.activity();
-        DPRINTF(SMT, "Start to fetch %d\n",
-            nextactivate);
-        fetch.wakeFromQuiesce(nextactivate);
+            // Be sure to signal that there's some activity so the CPU doesn't
+            // deschedule itself.
+            activityRec.activity();
+            fetch.wakeFromQuiesce(tid);
 
-        Cycles cycles(curCycle() - lastRunningCycle);
-        // @todo: This is an oddity that is only here to match the stats
-        if (cycles != 0)
-            --cycles;
-        cpuStats.quiesceCycles += cycles;
+            Cycles cycles(curCycle() - lastRunningCycle);
+            // @todo: This is an oddity that is only here to match the stats
+            if (cycles != 0)
+                --cycles;
+            cpuStats.quiesceCycles += cycles;
 
-        lastActivatedCycle = curTick();
+            lastActivatedCycle = curTick();
 
-        _status = Running;
+            _status = Running;
 
-        BaseCPU::activateContext(nextactivate);   
-        nextactivate = -1;     
+            BaseCPU::activateContext(tid);   
+            nextactivate[tid] = false;  
+            DPRINTF(SMT, "after lastActivatedCycle:%llu curTick():%llu\n",lastActivatedCycle , curTick());   
+        }
     }
 //    activity = false;
 
@@ -543,20 +546,18 @@ CPU::activateContext(ThreadID tid)
     // event from drainResume() instead.
     if (drainState() == DrainState::Drained)
     {
-        DPRINTF(SMT, "Drained Context %d\n",
-            tid);
         return;
     }
     // If we are time 0 or if the last activation time is in the past,
     // schedule the next tick and wake up the fetch unit
+    DPRINTF(SMT, "before lastActivatedCycle: %llu curTick(): %llu\n",lastActivatedCycle , curTick());
     if (lastActivatedCycle == 0 || lastActivatedCycle < curTick()) {
+        DPRINTF(SMT, "1st activate\n");
         scheduleTickEvent(Cycles(0));
 
         // Be sure to signal that there's some activity so the CPU doesn't
         // deschedule itself.
         activityRec.activity();
-        DPRINTF(SMT, "Start to fetch %d\n",
-            tid);
         fetch.wakeFromQuiesce(tid);
 
         Cycles cycles(curCycle() - lastRunningCycle);
@@ -572,8 +573,10 @@ CPU::activateContext(ThreadID tid)
         BaseCPU::activateContext(tid);
     } 
     else {
-        nextactivate = tid;
+        DPRINTF(SMT, "2nd activate\n");
+        nextactivate[tid] = true;
     }
+    DPRINTF(SMT, "after lastActivatedCycle: %llu curTick(): %llu\n",lastActivatedCycle , curTick());
 }
 
 void

@@ -296,14 +296,13 @@ void
 Fetch::resetStage()
 {
     numInst = 0;
-    interruptPending[0] = false;
-    interruptPending[1] = false;
     cacheBlocked = false;
 
     priorityList.clear();
 
     // Setup PC and nextPC with initial state.
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
+        interruptPending[tid] = false;
         fetchStatus[tid] = Running;
         set(pc[tid], cpu->pcState(tid));
         fetchOffset[tid] = 0;
@@ -386,11 +385,12 @@ Fetch::drainSanityCheck() const
     assert(retryPkt == NULL);
     assert(retryTid == InvalidThreadID);
     assert(!cacheBlocked);
-    assert(!interruptPending[0]&&!interruptPending[1]);
+   
 
     for (ThreadID i = 0; i < numThreads; ++i) {
         assert(!memReq[i]);
-        assert(fetchStatus[i] == Idle || stalls[i].drain);
+        assert(fetchStatus[i] == Idle || stalls[i].drain); 
+        assert(!interruptPending[i]);
     }
 
     branchPred->drainSanityCheck();
@@ -837,25 +837,20 @@ Fetch::tick()
         // for each thread.
         bool updated_status = checkSignalsAndUpdate(tid);
         status_change =  status_change || updated_status;
+
+        if (FullSystem) {
+        if (fromCommit->commitInfo[tid].interruptPending) {
+            interruptPending[tid] = true;
+        }
+        
+        if (fromCommit->commitInfo[tid].clearInterrupt) {
+            interruptPending[tid] = false;
+        }
+    }
     }
 
     DPRINTF(Fetch, "Running stage.\n");
 
-    if (FullSystem) {
-        if (fromCommit->commitInfo[0].interruptPending) {
-            interruptPending[0] = true;
-        }
-        if (fromCommit->commitInfo[1].interruptPending) {
-            interruptPending[1] = true;
-        }
-
-        if (fromCommit->commitInfo[0].clearInterrupt) {
-            interruptPending[0] = false;
-        }
-        if (fromCommit->commitInfo[1].clearInterrupt) {
-            interruptPending[1] = false;
-        }
-    }
 
     for (threadFetched = 0; threadFetched < numFetchingThreads;
          threadFetched++) {

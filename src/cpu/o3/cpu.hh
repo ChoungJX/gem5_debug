@@ -115,7 +115,7 @@ class CPU : public BaseCPU
     Status _status;
 
   private:
-    ThreadID nextactivate;
+    bool nextactivate[MaxThreads];
 
     /** The tick event used for scheduling CPU ticks. */
     EventFunctionWrapper tickEvent;

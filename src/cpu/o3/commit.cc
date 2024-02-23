@@ -483,7 +483,6 @@ Commit::generateTCEvent(ThreadID tid)
 {
     assert(!trapInFlight[tid]);
     DPRINTF(Commit, "Generating TC squash event for [tid:%i]\n", tid);
-    DPRINTF(SMT, "Generating TC squash event for [tid:%i]\n", tid);
 
     tcSquash[tid] = true;
 }
@@ -547,7 +546,6 @@ Commit::squashFromTC(ThreadID tid)
     squashAll(tid);
 
     DPRINTF(Commit, "Squashing from TC, restarting at PC %s\n", *pc[tid]);
-    DPRINTF(SMT, "Squashing from TC, restarting at PC %s\n", *pc[tid]);
 
     thread[tid]->noSquashFromTC = false;
     assert(!thread[tid]->trapPending);

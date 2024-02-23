@@ -277,8 +277,6 @@ class Commit
     void squashAfter(ThreadID tid, const DynInstPtr &head_inst);
 
     // /** Handles processing an interrupt. */
-    // void handleInterrupt();
-
     void handleInterruptSMT(ThreadID tid);
 
     bool ifThreadEmpty(ThreadID tid);
