@@ -53,9 +53,13 @@ print("=======================================================")
 
 
 # =========================File Directory===========================
-bootloader_path = "/home/linfeng/.cache/gem5/arm64-bootloader-foundation"
-kernel_path = "/home/linfeng/.cache/gem5/arm64-linux-kernel-5.4.49"
-system_image_path = "/home/linfeng/work/arm64-ubuntu-focal-server.img"
+# bootloader_path = "/home/linfeng/.cache/gem5/arm64-bootloader-foundation"
+# kernel_path = "/home/linfeng/.cache/gem5/arm64-linux-kernel-5.4.49"
+# system_image_path = "/home/linfeng/work/arm64-ubuntu-focal-server.img"
+# checkpoint_path = "m5out/test/node1/cpt.324854903584"
+bootloader_path = "/home/jinlin/image/arm64-bootloader-foundation"
+kernel_path = "/home/jinlin/image/arm64-linux-kernel-5.4.49"
+system_image_path = "/home/jinlin/image/arm64-ubuntu-focal-server.img"
 checkpoint_path = "m5out/test/node1/cpt.324854903584"
 
 readfile_path = "fs_config/data/readfile"  # for m5 readfile

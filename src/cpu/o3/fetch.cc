@@ -49,6 +49,7 @@
 
 #include "arch/generic/tlb.hh"
 #include "base/random.hh"
+#include "base/trace.hh"
 #include "base/types.hh"
 #include "cpu/base.hh"
 #include "cpu/exetrace.hh"
@@ -61,10 +62,12 @@
 #include "debug/Fetch.hh"
 #include "debug/O3CPU.hh"
 #include "debug/O3PipeView.hh"
+#include "debug/Quiesce.hh"
 #include "mem/packet.hh"
 #include "params/BaseO3CPU.hh"
 #include "sim/byteswap.hh"
 #include "sim/core.hh"
+#include "sim/cur_tick.hh"
 #include "sim/eventq.hh"
 #include "sim/full_system.hh"
 #include "sim/system.hh"
@@ -293,7 +296,8 @@ void
 Fetch::resetStage()
 {
     numInst = 0;
-    interruptPending = false;
+    interruptPending[0] = false;
+    interruptPending[1] = false;
     cacheBlocked = false;
 
     priorityList.clear();
@@ -382,7 +386,7 @@ Fetch::drainSanityCheck() const
     assert(retryPkt == NULL);
     assert(retryTid == InvalidThreadID);
     assert(!cacheBlocked);
-    assert(!interruptPending);
+    assert(!interruptPending[0]&&!interruptPending[1]);
 
     for (ThreadID i = 0; i < numThreads; ++i) {
         assert(!memReq[i]);
@@ -440,12 +444,14 @@ Fetch::drainStall(ThreadID tid)
 }
 
 void
-Fetch::wakeFromQuiesce()
+Fetch::wakeFromQuiesce(ThreadID tid)
 {
     DPRINTF(Fetch, "Waking up from quiesce\n");
+
+    wakeup[tid] = 1;
     // Hopefully this is safe
     // @todo: Allow other threads to wake from quiesce.
-    fetchStatus[0] = Running;
+    fetchStatus[tid] = Running;
 }
 
 void
@@ -539,7 +545,7 @@ Fetch::fetchCacheLine(Addr vaddr, ThreadID tid, Addr pc)
         DPRINTF(Fetch, "[tid:%i] Can't fetch cache line, cache blocked\n",
                 tid);
         return false;
-    } else if (checkInterrupt(pc) && !delayedCommit[tid]) {
+    } else if (checkInterrupt(tid) && !delayedCommit[tid]) {
         // Hold off fetch from getting new instructions when:
         // Cache is blocked, or
         // while an interrupt is pending and we're not in PAL mode, or
@@ -836,14 +842,18 @@ Fetch::tick()
     DPRINTF(Fetch, "Running stage.\n");
 
     if (FullSystem) {
-        if (fromCommit->commitInfo[0].interruptPending
-            || fromCommit->commitInfo[1].interruptPending) {
-            interruptPending = true;
+        if (fromCommit->commitInfo[0].interruptPending) {
+            interruptPending[0] = true;
+        }
+        if (fromCommit->commitInfo[1].interruptPending) {
+            interruptPending[1] = true;
         }
 
-        if (fromCommit->commitInfo[0].clearInterrupt
-            && fromCommit->commitInfo[1].clearInterrupt) {
-            interruptPending = false;
+        if (fromCommit->commitInfo[0].clearInterrupt) {
+            interruptPending[0] = false;
+        }
+        if (fromCommit->commitInfo[1].clearInterrupt) {
+            interruptPending[1] = false;
         }
     }
 
@@ -1041,6 +1051,11 @@ Fetch::buildInst(ThreadID tid, StaticInstPtr staticInst,
 
     DPRINTF(Fetch, "[tid:%i] Instruction is: %s\n", tid,
             instruction->staticInst->disassemble(this_pc.instAddr()));
+    // if(wakeup[tid] == 1)
+    // {
+    //     DPRINTF(Quiesce, "[tid:%i] Instruction PC: %s Instruction is: %s\n", tid, this_pc,
+    //         instruction->staticInst->disassemble(this_pc.instAddr()));
+    // }
 
 #if TRACING_ON
     if (trace) {
@@ -1092,6 +1107,8 @@ Fetch::fetch(bool &status_change)
     }
 
     DPRINTF(Fetch, "Attempting to fetch from [tid:%i]\n", tid);
+    // if(wakeup == 1)
+    //     DPRINTF(Quiesce, "Attempting to fetch from [tid:%i]\n", tid);
 
     // The current PC.
     PCStateBase &this_pc = *pc[tid];
@@ -1132,7 +1149,7 @@ Fetch::fetch(bool &status_change)
             else
                 ++fetchStats.miscStallCycles;
             return;
-        } else if (checkInterrupt(this_pc.instAddr()) &&
+        } else if (checkInterrupt(tid) &&
                 !delayedCommit[tid]) {
             // Stall CPU if an interrupt is posted and we're not issuing
             // an delayed commit micro-op currently (delayed commit
@@ -1164,7 +1181,9 @@ Fetch::fetch(bool &status_change)
 
     DPRINTF(Fetch, "[tid:%i] Adding instructions to queue to "
             "decode.\n", tid);
-
+    // if(wakeup==1)
+    //     DPRINTF(Quiesce, "[tid:%i] Adding instructions to queue to "
+    //         "decode.\n", tid);
     // Need to keep track of whether or not a predicted branch
     // ended this fetch block.
     bool predictedBranch = false;
@@ -1285,8 +1304,11 @@ Fetch::fetch(bool &status_change)
             }
 
             if (instruction->isQuiesce()) {
+                wakeup[tid] = 0;
                 DPRINTF(Fetch,
                         "Quiesce instruction encountered, halting fetch!\n");
+                DPRINTF(Quiesce,
+                        "tid %i Quiesce instruction encountered, halting fetch!\n",tid);
                 fetchStatus[tid] = QuiescePending;
                 status_change = true;
                 quiesce = true;
@@ -1399,28 +1421,41 @@ Fetch::getFetchingThread()
 ThreadID
 Fetch::roundRobin()
 {
-    std::list<ThreadID>::iterator pri_iter = priorityList.begin();
-    std::list<ThreadID>::iterator end      = priorityList.end();
+    // std::list<ThreadID>::iterator pri_iter = priorityList.begin();
+    // std::list<ThreadID>::iterator end      = priorityList.end();
 
-    ThreadID high_pri;
+    // ThreadID high_pri;
 
-    while (pri_iter != end) {
-        high_pri = *pri_iter;
+    // while (pri_iter != end) {
+    //     high_pri = *pri_iter;
 
-        assert(high_pri <= numThreads);
+    //     assert(high_pri <= numThreads);
+    //     if (fetchStatus[high_pri] == Running ||
+    //         fetchStatus[high_pri] == IcacheAccessComplete ||
+    //         fetchStatus[high_pri] == Idle) {
 
-        if (fetchStatus[high_pri] == Running ||
-            fetchStatus[high_pri] == IcacheAccessComplete ||
-            fetchStatus[high_pri] == Idle) {
+    //         priorityList.erase(pri_iter);
+    //         priorityList.push_back(high_pri);
 
-            priorityList.erase(pri_iter);
-            priorityList.push_back(high_pri);
+    //         return high_pri;
+    //     }
 
-            return high_pri;
-        }
-
-        pri_iter++;
-    }
+    //     pri_iter++;
+    // }
+    assert(numThreads==2);
+    ThreadID ctid = cpu->curCycle()%2;
+    DPRINTF(Fetch, "strictRR selecting tid=%d\n", ctid);
+    if (fetchStatus[ctid] == Running ||
+        fetchStatus[ctid] == IcacheAccessComplete ||
+        fetchStatus[ctid] == Idle) {
+            return ctid;
+    } 
+    ctid = (cpu->curCycle()+1)%2;
+    if (fetchStatus[ctid] == Running ||
+        fetchStatus[ctid] == IcacheAccessComplete ||
+        fetchStatus[ctid] == Idle) {
+            return ctid;
+    } 
 
     return InvalidThreadID;
 }

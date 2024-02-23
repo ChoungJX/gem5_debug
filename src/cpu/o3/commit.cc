@@ -48,6 +48,7 @@
 #include "base/compiler.hh"
 #include "base/loader/symtab.hh"
 #include "base/logging.hh"
+#include "base/types.hh"
 #include "cpu/base.hh"
 #include "cpu/checker/cpu.hh"
 #include "cpu/exetrace.hh"
@@ -63,6 +64,7 @@
 #include "debug/ExecFaulting.hh"
 #include "debug/HtmCpu.hh"
 #include "debug/O3PipeView.hh"
+#include "debug/SMT.hh"
 #include "params/BaseO3CPU.hh"
 #include "sim/faults.hh"
 #include "sim/full_system.hh"
@@ -94,8 +96,8 @@ Commit::Commit(CPU *_cpu, const BaseO3CPUParams &params)
       drainPending(false),
       drainImminent(false),
       trapLatency(params.trapLatency),
-      canHandleInterrupts(true),
-      avoidQuiesceLiveLock(false),
+    //   canHandleInterrupts(true),
+    //   avoidQuiesceLiveLock(false),
       stats(_cpu, this)
 {
     if (commitWidth > MaxWidth)
@@ -105,6 +107,11 @@ Commit::Commit(CPU *_cpu, const BaseO3CPUParams &params)
 
     _status = Active;
     _nextStatus = Inactive;
+
+    for(int i = 0; i < MaxThreads; i++){
+        canHandleInterrupts[i] = true;
+        avoidQuiesceLiveLock[i] = false;
+    }
 
     if (commitPolicy == CommitPolicy::RoundRobin) {
         //Set-Up Priority List
@@ -128,10 +135,8 @@ Commit::Commit(CPU *_cpu, const BaseO3CPUParams &params)
         renameMap[tid] = nullptr;
         htmStarts[tid] = 0;
         htmStops[tid] = 0;
+        interrupt[tid] = NoFault;
     }
-    interrupt = NoFault;
-    checked_pc = 0;
-    instMatchFSM = 0;
 }
 
 std::string Commit::name() const { return cpu->name() + ".commit"; }
@@ -336,7 +341,7 @@ Commit::isDrained() const
      *   address mappings. This can happen on for example x86.
      */
     for (ThreadID tid = 0; tid < numThreads; tid++) {
-        if (pc[tid]->microPC() != 0)
+        if (pc[tid]->microPC() != 0 || interrupt[tid] != NoFault)
             return false;
     }
 
@@ -346,8 +351,7 @@ Commit::isDrained() const
      * makes debugging easier since CPU handover and restoring from a
      * checkpoint with a different CPU should have the same timing.
      */
-    return rob->isEmpty() &&
-        interrupt == NoFault;
+    return rob->isEmpty();
 }
 
 void
@@ -479,6 +483,7 @@ Commit::generateTCEvent(ThreadID tid)
 {
     assert(!trapInFlight[tid]);
     DPRINTF(Commit, "Generating TC squash event for [tid:%i]\n", tid);
+    DPRINTF(SMT, "Generating TC squash event for [tid:%i]\n", tid);
 
     tcSquash[tid] = true;
 }
@@ -524,6 +529,7 @@ Commit::squashFromTrap(ThreadID tid)
     squashAll(tid);
 
     DPRINTF(Commit, "Squashing from trap, restarting at PC %s\n", *pc[tid]);
+    DPRINTF(SMT, "Squashing from trap, restarting at PC %s\n", *pc[tid]);
 
     thread[tid]->trapPending = false;
     thread[tid]->noSquashFromTC = false;
@@ -541,6 +547,7 @@ Commit::squashFromTC(ThreadID tid)
     squashAll(tid);
 
     DPRINTF(Commit, "Squashing from TC, restarting at PC %s\n", *pc[tid]);
+    DPRINTF(SMT, "Squashing from TC, restarting at PC %s\n", *pc[tid]);
 
     thread[tid]->noSquashFromTC = false;
     assert(!thread[tid]->trapPending);
@@ -657,66 +664,91 @@ Commit::tick()
     updateStatus();
 }
 
-void
-Commit::handleInterrupt()
+bool
+Commit::ifThreadEmpty(ThreadID tid)
 {
-    // Verify that we still have an interrupt to handle
-    if (!cpu->checkInterrupts(0)) {
-        DPRINTF(Commit, "Pending interrupt is cleared by requestor before "
-                "it got handled. Restart fetching from the orig path.\n");
-        toIEW->commitInfo[0].clearInterrupt = true;
-        interrupt = NoFault;
-        avoidQuiesceLiveLock = true;
-        return;
+    if(cpu->instList.empty())
+        return true;
+    
+    std::list<DynInstPtr>::iterator inst =  cpu->instList.begin();
+    std::list<DynInstPtr>::iterator end = cpu->instList.end();
+    while (inst != end) {
+        if(inst->get()->threadNumber == tid)
+            return false;
+
+        inst++;
     }
 
-    // Wait until all in flight instructions are finished before enterring
-    // the interrupt.
-    if (canHandleInterrupts && cpu->instList.empty()) {
-        // Squash or record that I need to squash this cycle if
-        // an interrupt needed to be handled.
-        DPRINTF(Commit, "Interrupt detected.\n");
+    return true;
+}
 
-        // Clear the interrupt now that it's going to be handled
-        toIEW->commitInfo[0].clearInterrupt = true;
+void
+Commit::handleInterruptSMT(ThreadID tid)
+{
+    std::list<ThreadID>::iterator threads = activeThreads->begin();
+    std::list<ThreadID>::iterator end = activeThreads->end();
 
-        assert(!thread[0]->noSquashFromTC);
-        thread[0]->noSquashFromTC = true;
+    while (threads != end) {
+        ThreadID tid = *threads++;
 
-        if (cpu->checker) {
-            cpu->checker->handlePendingInt();
+        if (!cpu->checkInterrupts(tid)) {
+            DPRINTF(Commit, "Pending interrupt is cleared by requestor before "
+                    "it got handled. Restart fetching from the orig path.\n");
+            toIEW->commitInfo[tid].clearInterrupt = true;
+            interrupt[tid] = NoFault;
+            avoidQuiesceLiveLock[tid] = true;
+            break;
         }
 
-        // CPU will handle interrupt. Note that we ignore the local copy of
-        // interrupt. This is because the local copy may no longer be the
-        // interrupt that the interrupt controller thinks is being handled.
-        cpu->processInterrupts(cpu->getInterrupts());
+        // Wait until all in flight instructions are finished before enterring
+        // the interrupt.
+        if (canHandleInterrupts[tid] && ifThreadEmpty(tid)) {
+            // Squash or record that I need to squash this cycle if
+            // an interrupt needed to be handled.
+            DPRINTF(Commit, "Interrupt detected.\n");
 
-        thread[0]->noSquashFromTC = false;
+            // Clear the interrupt now that it's going to be handled
+            toIEW->commitInfo[tid].clearInterrupt = true;
 
-        commitStatus[0] = TrapPending;
+            assert(!thread[tid]->noSquashFromTC);
+            thread[tid]->noSquashFromTC = true;
 
-        interrupt = NoFault;
+            if (cpu->checker) {
+                cpu->checker->handlePendingInt();
+            }
 
-        // Generate trap squash event.
-        generateTrapEvent(0, interrupt);
+            // CPU will handle interrupt. Note that we ignore the local copy of
+            // interrupt. This is because the local copy may no longer be the
+            // interrupt that the interrupt controller thinks is being handled.
+            cpu->processInterrupts(tid, cpu->getInterrupts(tid));
 
-        avoidQuiesceLiveLock = false;
-    } else {
-        DPRINTF(Commit, "Interrupt pending: instruction is %sin "
-                "flight, ROB is %sempty\n",
-                canHandleInterrupts ? "not " : "",
-                cpu->instList.empty() ? "" : "not " );
+            thread[tid]->noSquashFromTC = false;
+
+            commitStatus[tid] = TrapPending;
+
+            interrupt[tid] = NoFault;
+
+            // Generate trap squash event.
+            generateTrapEvent(tid, interrupt[tid]);
+
+            avoidQuiesceLiveLock[tid] = false;
+        } else {
+            // DPRINTF(SMT, "Interrupt pending: instruction is %sin "
+            //         "flight, ROB is %sempty\n",
+            //         canHandleInterrupts[tid] ? "not " : "",
+            //         cpu->instList.empty() ? "" : "not " );
+        }
+
     }
 }
 
 void
-Commit::propagateInterrupt()
+Commit::propagateInterruptSMT(ThreadID tid)
 {
     // Don't propagate intterupts if we are currently handling a trap or
     // in draining and the last observable instruction has been committed.
-    if (commitStatus[0] == TrapPending || interrupt || trapSquash[0] ||
-            tcSquash[0] || drainImminent)
+    if (commitStatus[tid] == TrapPending || interrupt[tid] || trapSquash[tid] ||
+            tcSquash[tid] || drainImminent)
         return;
 
     // Process interrupts if interrupts are enabled, not in PAL
@@ -725,22 +757,30 @@ Commit::propagateInterrupt()
     // @todo: Allow other threads to handle interrupts.
 
     // Get any interrupt that happened
-    interrupt = cpu->getInterrupts();
+    interrupt[tid] = cpu->getInterrupts(tid);
 
     // Tell fetch that there is an interrupt pending.  This
     // will make fetch wait until it sees a non PAL-mode PC,
     // at which point it stops fetching instructions.
-    if (interrupt != NoFault)
-        toIEW->commitInfo[0].interruptPending = true;
+    if (interrupt[tid] != NoFault)
+        toIEW->commitInfo[tid].interruptPending = true;
 }
 
 void
 Commit::commit()
 {
     if (FullSystem) {
+
+        std::list<ThreadID>::iterator threads = activeThreads->begin();
+        std::list<ThreadID>::iterator end = activeThreads->end();
         // Check if we have a interrupt and get read to handle it
-        if (cpu->checkInterrupts(0) || cpu->checkInterrupts(1))
-            propagateInterrupt();
+        while (threads != end) {
+            ThreadID tid = *threads++;
+
+            if(cpu->checkInterrupts(tid))
+                propagateInterruptSMT(tid);
+        }
+        
     }
 
     ////////////////////////////////////
@@ -921,25 +961,29 @@ Commit::commitInsts()
         // need to handle interrupts specially
 
         ThreadID commit_thread = getCommittingThread();
-
+        
         // Check for any interrupt that we've already squashed for
         // and start processing it.
-        if (interrupt != NoFault) {
-            // If inside a transaction, postpone interrupts
-            if (executingHtmTransaction(commit_thread)) {
-                cpu->clearInterrupts(0);
-                toIEW->commitInfo[0].clearInterrupt = true;
-                interrupt = NoFault;
-                avoidQuiesceLiveLock = true;
-            } else {
-                handleInterrupt();
+        std::list<ThreadID>::iterator threads = activeThreads->begin();
+        while (threads != activeThreads->end()) {
+            ThreadID tid0 = *threads++;
+            if (interrupt[tid0] != NoFault) {
+                // If inside a transaction, postpone interrupts
+                if (executingHtmTransaction(tid0)) {
+                    cpu->clearInterrupts(tid0);
+                    toIEW->commitInfo[tid0].clearInterrupt = true;
+                    interrupt[tid0] = NoFault;
+                    avoidQuiesceLiveLock[tid0] = true;
+                } else {
+                    handleInterruptSMT(tid0);
+                }
             }
         }
-
-        // ThreadID commit_thread = getCommittingThread();
-
+        
         if (commit_thread == -1 || !rob->isHeadReady(commit_thread))
             break;
+        // ThreadID commit_thread = getCommittingThread();
+
 
         head_inst = rob->readHeadInst(commit_thread);
 
@@ -1001,8 +1045,8 @@ Commit::commitInsts()
                 // Set the doneSeqNum to the youngest committed instruction.
                 toIEW->commitInfo[tid].doneSeqNum = head_inst->seqNum;
 
-                if (tid == 0)
-                    canHandleInterrupts = !head_inst->isDelayedCommit();
+                
+                canHandleInterrupts[commit_thread] = !head_inst->isDelayedCommit();
 
                 // at this point store conditionals should either have
                 // been completed or predicated false
@@ -1032,7 +1076,7 @@ Commit::commitInsts()
                     squashAfter(tid, head_inst);
 
                 if (drainPending) {
-                    if (pc[tid]->microPC() == 0 && interrupt == NoFault &&
+                    if (pc[tid]->microPC() == 0 && interrupt[tid] == NoFault &&
                         !thread[tid]->trapPending) {
                         // Last architectually committed instruction.
                         // Squash the pipeline, stall fetch, and use
@@ -1076,8 +1120,8 @@ Commit::commitInsts()
                 //
                 // If we don't do this, we might end up in a live lock
                 // situation.
-                if (!interrupt && avoidQuiesceLiveLock &&
-                    onInstBoundary && cpu->checkInterrupts(0))
+                if (!interrupt[tid] && avoidQuiesceLiveLock[tid] &&
+                    onInstBoundary && cpu->checkInterrupts(commit_thread))
                     squashAfter(tid, head_inst);
             } else {
                 DPRINTF(Commit, "Unable to commit head instruction PC:%s "
@@ -1432,27 +1476,16 @@ Commit::getCommittingThread()
 ThreadID
 Commit::roundRobin()
 {
-    std::list<ThreadID>::iterator pri_iter = priority_list.begin();
-    std::list<ThreadID>::iterator end      = priority_list.end();
+    ThreadID ctid = cpu->curCycle()%2;
+    DPRINTF(Commit, "strictRR selecting tid=%d\n", ctid);
+    if (commitStatus[ctid] == Running ||
+        commitStatus[ctid] == Idle ||
+        commitStatus[ctid] == FetchTrapPending) {
 
-    while (pri_iter != end) {
-        ThreadID tid = *pri_iter;
-
-        if (commitStatus[tid] == Running ||
-            commitStatus[tid] == Idle ||
-            commitStatus[tid] == FetchTrapPending) {
-
-            if (rob->isHeadReady(tid)) {
-                priority_list.erase(pri_iter);
-                priority_list.push_back(tid);
-
-                return tid;
-            }
+        if (rob->isHeadReady(ctid)) {
+            return ctid;
         }
-
-        pri_iter++;
     }
-
     return InvalidThreadID;
 }
 

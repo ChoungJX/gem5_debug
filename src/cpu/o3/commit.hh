@@ -44,6 +44,7 @@
 #include <queue>
 
 #include "base/statistics.hh"
+#include "base/types.hh"
 #include "cpu/exetrace.hh"
 #include "cpu/inst_seq.hh"
 #include "cpu/o3/comm.hh"
@@ -275,11 +276,17 @@ class Commit
      */
     void squashAfter(ThreadID tid, const DynInstPtr &head_inst);
 
-    /** Handles processing an interrupt. */
-    void handleInterrupt();
+    // /** Handles processing an interrupt. */
+    // void handleInterrupt();
 
-    /** Get fetch redirecting so we can handle an interrupt */
-    void propagateInterrupt();
+    void handleInterruptSMT(ThreadID tid);
+
+    bool ifThreadEmpty(ThreadID tid);
+
+    // /** Get fetch redirecting so we can handle an interrupt */
+    // void propagateInterrupt();
+
+    void propagateInterruptSMT(ThreadID tid);
 
     /** Commits as many instructions as possible. */
     void commitInsts();
@@ -416,7 +423,7 @@ class Commit
     const Cycles trapLatency;
 
     /** The interrupt fault. */
-    Fault interrupt;
+    Fault interrupt[MaxThreads];
 
     /** The commit PC state of each thread.  Refers to the instruction that
      * is currently being processed/committed.
@@ -446,13 +453,15 @@ class Commit
     UnifiedRenameMap *renameMap[MaxThreads];
 
     /** True if last committed microop can be followed by an interrupt */
-    bool canHandleInterrupts;
+    // bool canHandleInterrupts;
+
+    bool canHandleInterrupts[MaxThreads];
 
     /** Have we had an interrupt pending and then seen it de-asserted because
         of a masking change? In this case the variable is set and the next time
         interrupts are enabled and pending the pipeline will squash to avoid
         a possible livelock senario.  */
-    bool avoidQuiesceLiveLock;
+    bool avoidQuiesceLiveLock[MaxThreads];
 
     /** Updates commit stats based on this instruction. */
     void updateComInstStats(const DynInstPtr &inst);
@@ -491,10 +500,6 @@ class Commit
         /** Number of cycles where the commit bandwidth limit is reached. */
         statistics::Scalar commitEligibleSamples;
     } stats;
-
-    private:
-    Addr checked_pc;
-    int instMatchFSM;
 };
 
 } // namespace o3

@@ -38,3 +38,5 @@ venv
 /fs_config/data
 .cache
 compile_commands.json
+core
+log

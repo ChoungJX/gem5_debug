@@ -115,6 +115,7 @@ class CPU : public BaseCPU
     Status _status;
 
   private:
+    ThreadID nextactivate;
 
     /** The tick event used for scheduling CPU ticks. */
     EventFunctionWrapper tickEvent;
@@ -285,10 +286,10 @@ class CPU : public BaseCPU
     void trap(const Fault &fault, ThreadID tid, const StaticInstPtr &inst);
 
     /** Returns the Fault for any valid interrupt. */
-    Fault getInterrupts();
+    Fault getInterrupts(ThreadID tid);
 
     /** Processes any an interrupt fault. */
-    void processInterrupts(const Fault &interrupt);
+    void processInterrupts(ThreadID tid, const Fault &interrupt);
 
     /** Halts the CPU. */
     void halt() { panic("Halt not implemented!\n"); }

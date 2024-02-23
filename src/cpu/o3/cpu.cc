@@ -60,7 +60,7 @@
 #include "sim/process.hh"
 #include "sim/stat_control.hh"
 #include "sim/system.hh"
-
+#include "debug/SMT.hh"
 namespace gem5
 {
 
@@ -72,13 +72,14 @@ namespace o3
 CPU::CPU(const BaseO3CPUParams &params)
     : BaseCPU(params),
       mmu(params.mmu),
+      nextactivate(-1),
       tickEvent([this]{ tick(); }, "O3CPU tick",
                 false, Event::CPU_Tick_Pri),
+#ifndef NDEBUG
       threadExitEvent([this]{ exitThreads(); }, "O3CPU exit threads",
                 false, Event::CPU_Exit_Pri),
-#ifndef NDEBUG
-      instcount(0),
 #endif
+      instcount(0),
       removeInstsThisCycle(false),
       fetch(this, params),
       decode(this, params),
@@ -364,7 +365,29 @@ CPU::tick()
 
     ++baseStats.numCycles;
     updateCycleCounters(BaseCPU::CPU_STATE_ON);
+    if(curTick()>lastActivatedCycle && nextactivate!=-1){
+        scheduleTickEvent(Cycles(0));
 
+        // Be sure to signal that there's some activity so the CPU doesn't
+        // deschedule itself.
+        activityRec.activity();
+        DPRINTF(SMT, "Start to fetch %d\n",
+            nextactivate);
+        fetch.wakeFromQuiesce(nextactivate);
+
+        Cycles cycles(curCycle() - lastRunningCycle);
+        // @todo: This is an oddity that is only here to match the stats
+        if (cycles != 0)
+            --cycles;
+        cpuStats.quiesceCycles += cycles;
+
+        lastActivatedCycle = curTick();
+
+        _status = Running;
+
+        BaseCPU::activateContext(nextactivate);   
+        nextactivate = -1;     
+    }
 //    activity = false;
 
     //Tick each of the stages
@@ -519,8 +542,11 @@ CPU::activateContext(ThreadID tid)
     // we just want to flag the thread as active and schedule the tick
     // event from drainResume() instead.
     if (drainState() == DrainState::Drained)
+    {
+        DPRINTF(SMT, "Drained Context %d\n",
+            tid);
         return;
-
+    }
     // If we are time 0 or if the last activation time is in the past,
     // schedule the next tick and wake up the fetch unit
     if (lastActivatedCycle == 0 || lastActivatedCycle < curTick()) {
@@ -529,7 +555,9 @@ CPU::activateContext(ThreadID tid)
         // Be sure to signal that there's some activity so the CPU doesn't
         // deschedule itself.
         activityRec.activity();
-        fetch.wakeFromQuiesce();
+        DPRINTF(SMT, "Start to fetch %d\n",
+            tid);
+        fetch.wakeFromQuiesce(tid);
 
         Cycles cycles(curCycle() - lastRunningCycle);
         // @todo: This is an oddity that is only here to match the stats
@@ -542,6 +570,9 @@ CPU::activateContext(ThreadID tid)
         _status = Running;
 
         BaseCPU::activateContext(tid);
+    } 
+    else {
+        nextactivate = tid;
     }
 }
 
@@ -560,7 +591,7 @@ CPU::suspendContext(ThreadID tid)
         _status = Idle;
     }
 
-    DPRINTF(Quiesce, "Suspending Context\n");
+    DPRINTF(Quiesce, "Suspending Context [tid:%i]\n",tid);
 
     BaseCPU::suspendContext(tid);
 }
@@ -683,14 +714,14 @@ CPU::removeThread(ThreadID tid)
 }
 
 Fault
-CPU::getInterrupts()
+CPU::getInterrupts(ThreadID tid)
 {
     // Check if there are any outstanding interrupts
-    return interrupts[0]->getInterrupt();
+    return interrupts[tid]->getInterrupt();
 }
 
 void
-CPU::processInterrupts(const Fault &interrupt)
+CPU::processInterrupts(ThreadID tid, const Fault &interrupt)
 {
     // Check for interrupts here.  For now can copy the code that
     // exists within isa_fullsys_traits.hh.  Also assume that thread 0
@@ -699,10 +730,12 @@ CPU::processInterrupts(const Fault &interrupt)
     // @todo: Allow other threads to handle interrupts.
 
     assert(interrupt != NoFault);
-    interrupts[0]->updateIntrInfo();
+    //smt
+    interrupts[tid]->updateIntrInfo();
 
     DPRINTF(O3CPU, "Interrupt %s being handled\n", interrupt->name());
-    trap(interrupt, 0, nullptr);
+    DPRINTF(SMT, "Interrupt of tid[%d] %s being handled\n", tid, interrupt->name());
+    trap(interrupt, tid, nullptr);
 }
 
 void
@@ -1337,9 +1370,11 @@ CPU::wakeCPU()
 void
 CPU::wakeup(ThreadID tid)
 {
-    if (thread[tid]->status() != gem5::ThreadContext::Suspended)
+    if (thread[tid]->status() != gem5::ThreadContext::Suspended){
         return;
-
+    }
+    DPRINTF(SMT, "INTERRUPT tid[%d] found suspended! Go on ...\n", tid);
+    
     wakeCPU();
 
     DPRINTF(Quiesce, "Suspended Processor woken\n");

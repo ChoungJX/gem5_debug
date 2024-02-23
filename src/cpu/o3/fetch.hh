@@ -56,6 +56,7 @@
 #include "mem/port.hh"
 #include "sim/eventq.hh"
 #include "sim/probe/probe.hh"
+#include <cstdint>
 
 namespace gem5
 {
@@ -183,6 +184,7 @@ class Fetch
     };
 
   private:
+    uint8_t wakeup[MaxThreads];
     /** Fetch status. */
     FetchStatus _status;
 
@@ -256,7 +258,7 @@ class Fetch
     void drainStall(ThreadID tid);
 
     /** Tells fetch to wake up from a quiesce instruction. */
-    void wakeFromQuiesce();
+    void wakeFromQuiesce(ThreadID tid);
 
     /** For priority-based fetch policies, need to keep update priorityList */
     void deactivateThread(ThreadID tid);
@@ -302,7 +304,7 @@ class Fetch
 
     /** Check if an interrupt is pending and that we need to handle
      */
-    bool checkInterrupt(Addr pc) { return interruptPending; }
+    bool checkInterrupt(ThreadID tid) { return interruptPending[tid]; }
 
     /** Squashes a specific thread and resets the PC. */
     void doSquash(const PCStateBase &new_pc, const DynInstPtr squashInst,
@@ -516,7 +518,7 @@ class Fetch
     /** Checks if there is an interrupt pending.  If there is, fetch
      * must stop once it is not fetching PAL instructions.
      */
-    bool interruptPending;
+    bool interruptPending[MaxThreads];
 
     /** Instruction port. Note that it has to appear after the fetch stage. */
     IcachePort icachePort;
