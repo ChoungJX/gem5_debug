@@ -116,6 +116,7 @@ class CPU : public BaseCPU
 
   private:
     bool nextactivate[MaxThreads];
+    bool nextsuspend[MaxThreads];
 
     /** The tick event used for scheduling CPU ticks. */
     EventFunctionWrapper tickEvent;
@@ -224,6 +225,8 @@ class CPU : public BaseCPU
 
     /** Remove Thread from Active Threads List */
     void suspendContext(ThreadID tid) override;
+
+    void suspend();
 
     /** Remove Thread from Active Threads List &&
      *  Remove Thread Context from CPU.

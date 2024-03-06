@@ -35,7 +35,7 @@ configs/dram/lowp_sweep.cfg
 .vscode
 typings
 venv
-/fs_config/data
+fs_config
 .cache
 compile_commands.json
 core

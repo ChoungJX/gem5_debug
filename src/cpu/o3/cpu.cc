@@ -75,11 +75,12 @@ CPU::CPU(const BaseO3CPUParams &params)
       mmu(params.mmu),
       tickEvent([this]{ tick(); }, "O3CPU tick",
                 false, Event::CPU_Tick_Pri),
-#ifndef NDEBUG
+
       threadExitEvent([this]{ exitThreads(); }, "O3CPU exit threads",
                 false, Event::CPU_Exit_Pri),
-#endif
+#ifndef NDEBUG
       instcount(0),
+#endif
       removeInstsThisCycle(false),
       fetch(this, params),
       decode(this, params),
@@ -365,6 +366,7 @@ CPU::tick()
     assert(drainState() != DrainState::Drained);
 
     ++baseStats.numCycles;
+    lastRunningCycle = curCycle();
     updateCycleCounters(BaseCPU::CPU_STATE_ON);
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
         if(curTick()>lastActivatedCycle && nextactivate[tid]){
@@ -388,7 +390,8 @@ CPU::tick()
 
             BaseCPU::activateContext(tid);   
             nextactivate[tid] = false;  
-            DPRINTF(SMT, "after lastActivatedCycle:%llu curTick():%llu\n",lastActivatedCycle , curTick());   
+            DPRINTF(SMT, "after lastActivatedCycle:%llu curTick():%llu\n",lastActivatedCycle , curTick()); 
+            break;  
         }
     }
 //    activity = false;
@@ -582,21 +585,32 @@ CPU::activateContext(ThreadID tid)
 void
 CPU::suspendContext(ThreadID tid)
 {
-    DPRINTF(O3CPU,"[tid:%i] Suspending Thread Context.\n", tid);
-    assert(!switchedOut());
+    nextsuspend[tid] = true;
+}
 
-    deactivateThread(tid);
+void
+CPU::suspend()
+{
+    for (ThreadID tid = 0; tid < numThreads; tid++) {
+        if (nextsuspend[tid]){
+            DPRINTF(O3CPU,"[tid:%i] Suspending Thread Context.\n", tid);
+            assert(!switchedOut());
 
-    // If this was the last thread then unschedule the tick event.
-    if (activeThreads.size() == 0) {
-        unscheduleTickEvent();
-        lastRunningCycle = curCycle();
-        _status = Idle;
+            deactivateThread(tid);
+
+            // If this was the last thread then unschedule the tick event.
+            if (activeThreads.size() == 0) {
+                unscheduleTickEvent();
+                lastRunningCycle = curCycle();
+                _status = Idle;
+            }
+
+            DPRINTF(Quiesce, "[tid:%i] Suspending Thread Context.\n", tid);
+
+            BaseCPU::suspendContext(tid);
+            nextsuspend[tid] = false;
+        }
     }
-
-    DPRINTF(Quiesce, "Suspending Context [tid:%i]\n",tid);
-
-    BaseCPU::suspendContext(tid);
 }
 
 void
@@ -1365,6 +1379,7 @@ CPU::wakeCPU()
         --cycles;
         cpuStats.idleCycles += cycles;
         baseStats.numCycles += cycles;
+        lastRunningCycle = curCycle();
     }
 
     schedule(tickEvent, clockEdge());
