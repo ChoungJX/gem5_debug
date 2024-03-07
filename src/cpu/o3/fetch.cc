@@ -1416,42 +1416,21 @@ Fetch::getFetchingThread()
 ThreadID
 Fetch::roundRobin()
 {
-    // std::list<ThreadID>::iterator pri_iter = priorityList.begin();
-    // std::list<ThreadID>::iterator end      = priorityList.end();
 
-    // ThreadID high_pri;
+    
+    // ThreadID ctid = cpu->curCycle()%numThreads;
+    // DPRINTF(Fetch, "strictRR selecting tid=%d\n", ctid);
+    std::list<ThreadID>::iterator threads = activeThreads->begin();
+    std::list<ThreadID>::iterator end = activeThreads->end();
 
-    // while (pri_iter != end) {
-    //     high_pri = *pri_iter;
-
-    //     assert(high_pri <= numThreads);
-    //     if (fetchStatus[high_pri] == Running ||
-    //         fetchStatus[high_pri] == IcacheAccessComplete ||
-    //         fetchStatus[high_pri] == Idle) {
-
-    //         priorityList.erase(pri_iter);
-    //         priorityList.push_back(high_pri);
-
-    //         return high_pri;
-    //     }
-
-    //     pri_iter++;
-    // }
-    assert(numThreads==2);
-    ThreadID ctid = cpu->curCycle()%2;
-    DPRINTF(Fetch, "strictRR selecting tid=%d\n", ctid);
-    if (fetchStatus[ctid] == Running ||
-        fetchStatus[ctid] == IcacheAccessComplete ||
-        fetchStatus[ctid] == Idle) {
-            return ctid;
-    } 
-    ctid = (cpu->curCycle()+1)%2;
-    if (fetchStatus[ctid] == Running ||
-        fetchStatus[ctid] == IcacheAccessComplete ||
-        fetchStatus[ctid] == Idle) {
-            return ctid;
-    } 
-
+    while (threads != end) {
+        ThreadID tid = *threads++;
+        if (fetchStatus[tid] == Running ||
+            fetchStatus[tid] == IcacheAccessComplete ||
+            fetchStatus[tid] == Idle) {
+            return tid;
+        }
+    }
     return InvalidThreadID;
 }
 

@@ -1474,14 +1474,17 @@ Commit::getCommittingThread()
 ThreadID
 Commit::roundRobin()
 {
-    ThreadID ctid = cpu->curCycle()%2;
-    DPRINTF(Commit, "strictRR selecting tid=%d\n", ctid);
-    if (commitStatus[ctid] == Running ||
-        commitStatus[ctid] == Idle ||
-        commitStatus[ctid] == FetchTrapPending) {
+    std::list<ThreadID>::iterator threads = activeThreads->begin();
+    std::list<ThreadID>::iterator end = activeThreads->end();
+    while (threads != end) {
+        ThreadID tid = *threads++;
+        if (commitStatus[tid] == Running ||
+        commitStatus[tid] == Idle ||
+        commitStatus[tid] == FetchTrapPending) {
 
-        if (rob->isHeadReady(ctid)) {
-            return ctid;
+        if (rob->isHeadReady(tid)) {
+            return tid;
+        }
         }
     }
     return InvalidThreadID;

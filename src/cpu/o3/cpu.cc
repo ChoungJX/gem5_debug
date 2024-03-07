@@ -436,8 +436,8 @@ CPU::tick()
         }
     }
 
-    // if (!FullSystem)
-        updateThreadPriority();
+
+    updateThreadPriority();
 
     tryDrain();
 }
