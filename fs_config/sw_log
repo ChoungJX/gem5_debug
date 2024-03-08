@@ -29,10 +29,12 @@ gem5 Simulator System.  https://www.gem5.org
 gem5 is copyrighted software; use the --copyright option for details.
 
 gem5 version 23.1.0.0
-gem5 compiled Mar  8 2024 06:40:12
-gem5 started Mar  8 2024 09:12:23
-gem5 executing on 24b8ed524288, pid 2961480
+gem5 compiled Mar  8 2024 11:01:48
+gem5 started Mar  8 2024 11:04:08
+gem5 executing on 24b8ed524288, pid 3027430
 command line: ./build/ARM/gem5.fast -d m5out/switch configs/dist/sw.py --is-switch --checkpoint-dir=m5out/switch_arm --dist-server-port=2200 --dist-size=21 --dist-sync-repeat=10us --dist-sync-start=1000000000000t
 
 **** REAL SIMULATION ****
 src/sim/simulate.cc:199: info: Entering event queue @ 0.  Starting simulation...
+Writing checkpoint
+src/sim/simulate.cc:199: info: Entering event queue @ 1000000000000.  Starting simulation...

@@ -371,7 +371,7 @@ CPU::tick()
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
         if(curTick()>lastActivatedCycle && nextactivate[tid]){
             DPRINTF(SMT, "before lastActivatedCycle:%llu curTick(): %llu\n",lastActivatedCycle , curTick());
-            scheduleTickEvent(Cycles(0));
+            // scheduleTickEvent(Cycles(0));
 
             // Be sure to signal that there's some activity so the CPU doesn't
             // deschedule itself.
@@ -390,8 +390,7 @@ CPU::tick()
 
             BaseCPU::activateContext(tid);   
             nextactivate[tid] = false;  
-            DPRINTF(SMT, "after lastActivatedCycle:%llu curTick():%llu\n",lastActivatedCycle , curTick()); 
-            break;  
+            DPRINTF(SMT, "after lastActivatedCycle:%llu curTick():%llu\n",lastActivatedCycle , curTick());   
         }
     }
 //    activity = false;
