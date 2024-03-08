@@ -346,6 +346,8 @@ class Commit
     /** ROB interface. */
     ROB *rob;
 
+    uint8_t count114[MaxThreads];
+
   private:
     /** Pointer to O3CPU. */
     CPU *cpu;

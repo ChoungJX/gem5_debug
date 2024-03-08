@@ -407,14 +407,23 @@ BaseCPU::probeInstCommit(const StaticInstPtr &inst, Addr pc)
 BaseCPU::
 BaseCPUStats::BaseCPUStats(statistics::Group *parent)
     : statistics::Group(parent),
+      ADD_STAT(numInsts114, statistics::units::Count::get(),
+             "Number of 114514 instructions fetched (core level)"),
       ADD_STAT(numCycles, statistics::units::Cycle::get(),
                "Number of cpu cycles simulated"),
+      ADD_STAT(numCycles114, statistics::units::Cycle::get(),
+               "Number of 114514 tasks cycles simulated"),
       ADD_STAT(cpi, statistics::units::Rate<
                 statistics::units::Cycle, statistics::units::Count>::get(),
                "CPI: cycles per instruction (core level)"),
       ADD_STAT(ipc, statistics::units::Rate<
                 statistics::units::Count, statistics::units::Cycle>::get(),
                "IPC: instructions per cycle (core level)"),
+      
+      ADD_STAT(ipc114, statistics::units::Rate<
+                statistics::units::Count, statistics::units::Cycle>::get(),
+               "IPC: 114514 instructions per cycle (core level)"),
+      
       ADD_STAT(numWorkItemsStarted, statistics::units::Count::get(),
                "Number of work items this cpu started"),
       ADD_STAT(numWorkItemsCompleted, statistics::units::Count::get(),
@@ -424,7 +433,9 @@ BaseCPUStats::BaseCPUStats(statistics::Group *parent)
     cpi = numCycles / numInsts;
 
     ipc.precision(6);
+    ipc114.precision(6);
     ipc = numInsts / numCycles;
+    ipc114 = numInsts114 / numCycles114;
 }
 
 void

@@ -1,38 +1,38 @@
 Global frequency set at 1000000000000 ticks per second
 warn: No dot file generated. Please install pydot to generate the dot file and pdf.
-src/dev/net/tcp_iface.cc:97: info: tcp_iface listening on port 2201
-src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:0 -> (node:2103825632, iface:21932))
-src/dev/net/tcp_iface.cc:274: panic: send() failed: Bad file descriptor
-Memory Usage: 132932 KBytes
-Program aborted at tick 0
---- BEGIN LIBC BACKTRACE ---
-./build/ARM/gem5.fast(_ZN4gem515print_backtraceEv+0x19)[0x55ac7d28aef9]
-./build/ARM/gem5.fast(_ZN4gem512abortHandlerEi+0x3d)[0x55ac7d2a5e9d]
-/lib/x86_64-linux-gnu/libc.so.6(+0x3bfd0)[0x7f060096cfd0]
-/lib/x86_64-linux-gnu/libc.so.6(+0x8ad3c)[0x7f06009bbd3c]
-/lib/x86_64-linux-gnu/libc.so.6(gsignal+0x12)[0x7f060096cf32]
-/lib/x86_64-linux-gnu/libc.so.6(abort+0xd3)[0x7f0600957472]
-./build/ARM/gem5.fast(+0x18a870f)[0x55ac7b6fc70f]
-./build/ARM/gem5.fast(_ZN4gem58TCPIface7sendTCPEiPKvj+0x524)[0x55ac7cb7ebe4]
-./build/ARM/gem5.fast(_ZN4gem58TCPIface19establishConnectionEv+0x194)[0x55ac7cb7f664]
-./build/ARM/gem5.fast(_ZN4gem59DistIface4initEPKNS_5EventEm+0x17)[0x55ac7cb75817]
-./build/ARM/gem5.fast(+0x33e3305)[0x55ac7d237305]
-./build/ARM/gem5.fast(+0x1a9ba48)[0x55ac7b8efa48]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(+0x1c9bc3)[0x7f0601522bc3]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(_PyObject_MakeTpCall+0x7d)[0x7f06014d4e8d]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(_PyEval_EvalFrameDefault+0x4a63)[0x7f0601462c63]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(+0x3ccd3c)[0x7f0601725d3c]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(PyEval_EvalCode+0xc1)[0x7f06015c1891]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(+0x268fb0)[0x7f06015c1fb0]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(+0x1ca0c2)[0x7f06015230c2]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(PyObject_Vectorcall+0x33)[0x7f06014d6633]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(_PyEval_EvalFrameDefault+0x4a63)[0x7f0601462c63]
-/usr/lib/x86_64-linux-gnu/libpython3.11.so.1.0(+0x26ab4a)[0x7f06015c3b4a]
-./build/ARM/gem5.fast(+0x33b87a8)[0x55ac7d20c7a8]
-./build/ARM/gem5.fast(main+0x211)[0x55ac7d2a7d31]
-/lib/x86_64-linux-gnu/libc.so.6(+0x271ca)[0x7f06009581ca]
-/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x85)[0x7f0600958285]
-./build/ARM/gem5.fast(_start+0x21)[0x55ac7b6ef201]
---- END LIBC BACKTRACE ---
-For more info on how to address this issue, please visit https://www.gem5.org/documentation/general_docs/common-errors/ 
+src/dev/net/tcp_iface.cc:97: info: tcp_iface listening on port 2200
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:0 -> (node:0, iface:0))
+src/dev/net/dist_iface.cc:74: info: Next dist synchronisation tick is changed to 1000000000000.
+src/dev/net/dist_iface.cc:82: info: Dist synchronisation interval is changed to 10000000.
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:1 -> (node:1, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:2 -> (node:2, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:3 -> (node:3, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:4 -> (node:4, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:5 -> (node:5, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:6 -> (node:6, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:7 -> (node:7, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:8 -> (node:8, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:9 -> (node:9, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:10 -> (node:10, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:11 -> (node:11, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:12 -> (node:12, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:13 -> (node:13, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:14 -> (node:14, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:15 -> (node:15, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:16 -> (node:16, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:17 -> (node:17, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:18 -> (node:18, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:19 -> (node:19, iface:0))
+src/dev/net/tcp_iface.cc:177: info: Link okay  (iface:20 -> (node:20, iface:0))
+src/dev/net/dist_iface.cc:363: info: Dist sync scheduled at 1000000000000 and repeats 10000000
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
 
+gem5 version 23.1.0.0
+gem5 compiled Mar  8 2024 06:40:12
+gem5 started Mar  8 2024 09:12:23
+gem5 executing on 24b8ed524288, pid 2961480
+command line: ./build/ARM/gem5.fast -d m5out/switch configs/dist/sw.py --is-switch --checkpoint-dir=m5out/switch_arm --dist-server-port=2200 --dist-size=21 --dist-sync-repeat=10us --dist-sync-start=1000000000000t
+
+**** REAL SIMULATION ****
+src/sim/simulate.cc:199: info: Entering event queue @ 0.  Starting simulation...

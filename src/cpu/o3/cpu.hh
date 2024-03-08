@@ -189,6 +189,7 @@ class CPU : public BaseCPU
      *  activity to see if the CPU should deschedule itself.
      */
     void tick();
+    void find114_tick();
 
     /** Initialize the CPU */
     void init() override;
@@ -539,6 +540,7 @@ class CPU : public BaseCPU
 
     /** The cycle that the CPU was last running, used for statistics. */
     Cycles lastRunningCycle;
+    Cycles last114Cycle[MaxThreads];
 
     /** The cycle that the CPU was last activated by a new thread*/
     Tick lastActivatedCycle;

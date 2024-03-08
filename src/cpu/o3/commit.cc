@@ -1320,6 +1320,20 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
     if (head_inst->isStore() || head_inst->isAtomic())
         committedStores[tid] = true;
 
+    // Time to find 114514.
+    std::string mainString = head_inst->staticInst->disassemble(head_inst->pcState().instAddr());
+    std::string subString114 = "#11451";
+    std::string subString1919 = "#19198";
+    size_t found114 = mainString.find(subString114);
+    size_t found1919 = mainString.find(subString1919);
+    if (found114 != std::string::npos && count114[tid] == 0) {
+        // DPRINTF(Flag114, " %s\n",
+        //     head_inst->staticInst->disassemble(head_inst->pcState().instAddr()));
+        count114[tid] = 1;
+    } else if(found1919 != std::string::npos && count114[tid] == 2) {
+        count114[tid] = 3;
+    }
+
     // Return true to indicate that we have committed an instruction.
     return true;
 }
@@ -1385,6 +1399,7 @@ Commit::updateComInstStats(const DynInstPtr &inst)
     if (!inst->isMicroop() || inst->isLastMicroop()) {
         cpu->commitStats[tid]->numInsts++;
         cpu->baseStats.numInsts++;
+        if(count114[tid] == 1 || count114[tid] == 2) cpu->baseStats.numInsts114++;
     }
     cpu->commitStats[tid]->numOps++;
 

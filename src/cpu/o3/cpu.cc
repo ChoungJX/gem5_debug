@@ -406,6 +406,7 @@ CPU::tick()
     iew.tick();
 
     commit.tick();
+    find114_tick();
 
     // Now advance the time buffers
     timeBuffer.advance();
@@ -440,6 +441,21 @@ CPU::tick()
     updateThreadPriority();
 
     tryDrain();
+}
+
+void
+CPU::find114_tick()
+{
+    for (ThreadID tid = 0; tid < numThreads; ++tid) {
+        if(commit.count114[tid] == 1) {
+            last114Cycle[tid] = curCycle();
+            commit.count114[tid] = 2;
+        } else if(commit.count114[tid] == 3) {
+            Cycles cycles(curCycle()-last114Cycle[tid]);
+                baseStats.numCycles114 += cycles;
+            commit.count114[tid] = 0;
+        }
+    }
 }
 
 void

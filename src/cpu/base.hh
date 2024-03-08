@@ -635,12 +635,15 @@ class BaseCPU : public ClockedObject
         BaseCPUStats(statistics::Group *parent);
         // Number of CPU insts and ops committed at CPU core level
         statistics::Scalar numInsts;
+        statistics::Scalar numInsts114;
         statistics::Scalar numOps;
         // Number of CPU cycles simulated
         statistics::Scalar numCycles;
+        statistics::Scalar numCycles114;
         /* CPI/IPC for total cycle counts and macro insts */
         statistics::Formula cpi;
         statistics::Formula ipc;
+        statistics::Formula ipc114;
         statistics::Scalar numWorkItemsStarted;
         statistics::Scalar numWorkItemsCompleted;
     } baseStats;
