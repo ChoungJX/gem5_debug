@@ -44,6 +44,7 @@
 
 #include "base/trace.hh"
 #include "cpu/activity.hh"
+#include "cpu/base.hh"
 #include "cpu/checker/cpu.hh"
 #include "cpu/checker/thread_context.hh"
 #include "cpu/o3/dyn_inst.hh"
@@ -62,6 +63,7 @@
 #include "sim/stat_control.hh"
 #include "sim/system.hh"
 #include "debug/SMT.hh"
+#include <cstdint>
 namespace gem5
 {
 
@@ -222,6 +224,8 @@ CPU::CPU(const BaseO3CPUParams &params)
 
     rename.setScoreboard(&scoreboard);
     iew.setScoreboard(&scoreboard);
+    idletime = false;
+    flagreg = 0;
 
     // Setup the rename map for whichever stages need it.
     for (ThreadID tid = 0; tid < numThreads; tid++) {
@@ -366,31 +370,21 @@ CPU::tick()
     assert(drainState() != DrainState::Drained);
 
     ++baseStats.numCycles;
-    lastRunningCycle = curCycle();
     updateCycleCounters(BaseCPU::CPU_STATE_ON);
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
         if(curTick()>lastActivatedCycle && nextactivate[tid]){
-            DPRINTF(SMT, "before lastActivatedCycle:%llu curTick(): %llu\n",lastActivatedCycle , curTick());
             // scheduleTickEvent(Cycles(0));
 
             // Be sure to signal that there's some activity so the CPU doesn't
             // deschedule itself.
-            activityRec.activity();
             fetch.wakeFromQuiesce(tid);
-
-            Cycles cycles(curCycle() - lastRunningCycle);
-            // @todo: This is an oddity that is only here to match the stats
-            if (cycles != 0)
-                --cycles;
-            cpuStats.quiesceCycles += cycles;
 
             lastActivatedCycle = curTick();
 
             _status = Running;
 
             BaseCPU::activateContext(tid);   
-            nextactivate[tid] = false;  
-            DPRINTF(SMT, "after lastActivatedCycle:%llu curTick():%llu\n",lastActivatedCycle , curTick());   
+            nextactivate[tid] = false;     
         }
     }
 //    activity = false;
@@ -421,14 +415,13 @@ CPU::tick()
         cleanUpRemovedInsts();
     }
 
+    lastRunningCycle = curCycle();
     if (!tickEvent.scheduled()) {
         if (_status == SwitchedOut) {
             DPRINTF(O3CPU, "Switched out!\n");
-            // increment stat
-            lastRunningCycle = curCycle();
         } else if (!activityRec.active() || _status == Idle) {
+            if(!activityRec.active()) idletime = true;
             DPRINTF(O3CPU, "Idle!\n");
-            lastRunningCycle = curCycle();
             cpuStats.timesIdled++;
         } else {
             schedule(tickEvent, clockEdge(Cycles(1)));
@@ -445,16 +438,22 @@ CPU::tick()
 void
 CPU::find114_tick()
 {
+    uint8_t startflag = 0;
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
-        if(commit.count114[tid] == 1) {
-            last114Cycle[tid] = curCycle();
-            commit.count114[tid] = 2;
-        } else if(commit.count114[tid] == 3) {
-            Cycles cycles(curCycle()-last114Cycle[tid]);
-                baseStats.numCycles114 += cycles;
-            commit.count114[tid] = 0;
+        startflag = startflag | commit.count114[tid];
+    }
+    if(startflag == 0) {
+        if(flagreg == 1) {
+            Cycles cycles(curCycle() - last114Cycle);
+            baseStats.numCycles114 += cycles;
+        }
+    } else if(startflag == 1) {
+        if(flagreg == 0) {
+            last114Cycle = curCycle();
         }
     }
+    flagreg = startflag;
+
 }
 
 void
@@ -568,7 +567,7 @@ CPU::activateContext(ThreadID tid)
     }
     // If we are time 0 or if the last activation time is in the past,
     // schedule the next tick and wake up the fetch unit
-    DPRINTF(SMT, "before lastActivatedCycle: %llu curTick(): %llu\n",lastActivatedCycle , curTick());
+    
     if (lastActivatedCycle == 0 || lastActivatedCycle < curTick()) {
         DPRINTF(SMT, "1st activate\n");
         scheduleTickEvent(Cycles(0));
@@ -583,6 +582,7 @@ CPU::activateContext(ThreadID tid)
         if (cycles != 0)
             --cycles;
         cpuStats.quiesceCycles += cycles;
+        lastRunningCycle = curCycle();
 
         lastActivatedCycle = curTick();
 
@@ -594,7 +594,7 @@ CPU::activateContext(ThreadID tid)
         DPRINTF(SMT, "2nd activate\n");
         nextactivate[tid] = true;
     }
-    DPRINTF(SMT, "after lastActivatedCycle: %llu curTick(): %llu\n",lastActivatedCycle , curTick());
+    
 }
 
 void
@@ -1386,15 +1386,17 @@ CPU::wakeCPU()
         return;
     }
 
-    DPRINTF(Activity, "Waking up CPU\n");
+        DPRINTF(Activity, "Waking up CPU\n");
 
-    Cycles cycles(curCycle() - lastRunningCycle);
-    // @todo: This is an oddity that is only here to match the stats
-    if (cycles > 1) {
-        --cycles;
-        cpuStats.idleCycles += cycles;
-        baseStats.numCycles += cycles;
-        lastRunningCycle = curCycle();
+        // @todo: This is an oddity that is only here to match the stats
+    if(idletime) {
+        idletime = false;
+        Cycles cycles(curCycle() - lastRunningCycle);
+        if (cycles > 1) {
+            --cycles;
+            cpuStats.idleCycles += cycles;
+            baseStats.numCycles += cycles;
+        }
     }
 
     schedule(tickEvent, clockEdge());
@@ -1407,7 +1409,7 @@ CPU::wakeup(ThreadID tid)
         return;
     }
     DPRINTF(SMT, "INTERRUPT tid[%d] found suspended! Go on ...\n", tid);
-    
+    idletime = false;
     wakeCPU();
 
     DPRINTF(Quiesce, "Suspended Processor woken\n");

@@ -43,6 +43,7 @@
 #ifndef __CPU_O3_CPU_HH__
 #define __CPU_O3_CPU_HH__
 
+#include <cstdint>
 #include <iostream>
 #include <list>
 #include <queue>
@@ -117,6 +118,7 @@ class CPU : public BaseCPU
   private:
     bool nextactivate[MaxThreads];
     bool nextsuspend[MaxThreads];
+    bool idletime;
 
     /** The tick event used for scheduling CPU ticks. */
     EventFunctionWrapper tickEvent;
@@ -190,6 +192,7 @@ class CPU : public BaseCPU
      */
     void tick();
     void find114_tick();
+    uint8_t flagreg;
 
     /** Initialize the CPU */
     void init() override;
@@ -540,7 +543,7 @@ class CPU : public BaseCPU
 
     /** The cycle that the CPU was last running, used for statistics. */
     Cycles lastRunningCycle;
-    Cycles last114Cycle[MaxThreads];
+    Cycles last114Cycle;
 
     /** The cycle that the CPU was last activated by a new thread*/
     Tick lastActivatedCycle;

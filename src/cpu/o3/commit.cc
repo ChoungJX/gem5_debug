@@ -40,7 +40,7 @@
  */
 
 #include "cpu/o3/commit.hh"
-
+#include <iostream>
 #include <algorithm>
 #include <set>
 #include <string>
@@ -111,6 +111,7 @@ Commit::Commit(CPU *_cpu, const BaseO3CPUParams &params)
     for(int i = 0; i < MaxThreads; i++){
         canHandleInterrupts[i] = true;
         avoidQuiesceLiveLock[i] = false;
+        count114[i] = 0;
     }
 
     if (commitPolicy == CommitPolicy::RoundRobin) {
@@ -1327,11 +1328,9 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
     size_t found114 = mainString.find(subString114);
     size_t found1919 = mainString.find(subString1919);
     if (found114 != std::string::npos && count114[tid] == 0) {
-        // DPRINTF(Flag114, " %s\n",
-        //     head_inst->staticInst->disassemble(head_inst->pcState().instAddr()));
         count114[tid] = 1;
-    } else if(found1919 != std::string::npos && count114[tid] == 2) {
-        count114[tid] = 3;
+    } else if(found1919 != std::string::npos && count114[tid] == 1) {
+        count114[tid] = 0;
     }
 
     // Return true to indicate that we have committed an instruction.
@@ -1399,7 +1398,7 @@ Commit::updateComInstStats(const DynInstPtr &inst)
     if (!inst->isMicroop() || inst->isLastMicroop()) {
         cpu->commitStats[tid]->numInsts++;
         cpu->baseStats.numInsts++;
-        if(count114[tid] == 1 || count114[tid] == 2) cpu->baseStats.numInsts114++;
+        if(count114[tid] == 1) cpu->baseStats.numInsts114++;
     }
     cpu->commitStats[tid]->numOps++;
 
